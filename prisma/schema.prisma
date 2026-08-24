@@ -8,30 +8,35 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   passwordHash String
   name         String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String      @default("USER")
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   tenants      Tenant[]
   payments     Payment[]
+  auditLogs    AuditLog[]
   @@map("users")
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  ownerId   String
-  plan      String   @default("FREE")
-  status    String   @default("ACTIVE")
-  credits   Int      @default(100)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  owner     User     @relation(fields: [ownerId], references: [id])
-  payments  Payment[]
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  ownerId     String
+  plan        String        @default("FREE")
+  status      String        @default("ACTIVE")
+  credits     Int           @default(100)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       User          @relation(fields: [ownerId], references: [id])
+  payments    Payment[]
+  agents      Agent[]
+  memories   AgentMemory[]
+  auditLogs   AuditLog[]
   @@map("tenants")
 }
 
@@ -49,4 +54,69 @@ model Payment {
   user      User     @relation(fields: [userId], references: [id])
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   @@map("payments")
+}
+
+model Agent {
+  id             String       @id @default(cuid())
+  tenantId       String
+  name           String
+  slug           String
+  description    String?
+  systemPrompt   String?
+  tools          Json         @default("[]")
+  permissions    Json         @default("[]")
+  riskLevel      String       @default("LOW")
+  approvalPolicy String       @default("AUTO")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs           AgentRun[]
+  memories       AgentMemory[]
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model AgentRun {
+  id          String    @id @default(cuid())
+  agentId     String
+  tenantId    String
+  status      String    @default("PENDING")
+  input       Json?
+  output      Json?
+  error       String?
+  tokensUsed  Int       @default(0)
+  creditsUsed Int       @default(0)
+  iterations  Int       @default(0)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  @@index([tenantId, agentId, createdAt])
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  tenantId  String
+  agentId   String
+  content   String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  @@index([tenantId, agentId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  action    String
+  resource  String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
 }
