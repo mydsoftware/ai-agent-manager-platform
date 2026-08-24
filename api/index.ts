@@ -9,15 +9,14 @@ const app = new Hono().basePath('/api')
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 function db() {
   if (!process.env.DATABASE_URL) return null
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = new PrismaClient()
-  }
+  if (!globalForPrisma.prisma) globalForPrisma.prisma = new PrismaClient()
   return globalForPrisma.prisma
 }
 
 function jwtSecret() {
-  const s = process.env.JWT_SECRET || 'dev-change-me-in-production-32chars!!'
-  return new TextEncoder().encode(s)
+  const value = process.env.JWT_SECRET
+  if (!value || value.length < 32) throw new Error('JWT_SECRET must be configured with at least 32 characters')
+  return new TextEncoder().encode(value)
 }
 
 async function signToken(payload: { sub: string; email: string }) {
@@ -30,31 +29,39 @@ async function signToken(payload: { sub: string; email: string }) {
 
 async function verifyToken(token: string) {
   const { payload } = await jwtVerify(token, jwtSecret())
+  if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') throw new Error('invalid_token')
   return payload as { sub: string; email: string }
 }
 
-app.use(
-  '*',
-  cors({
-    origin: (origin) => {
-      const allowed = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim())
-      if (allowed.includes('*') || !origin) return origin || '*'
-      return allowed.includes(origin) ? origin : allowed[0]
-    },
-    credentials: true,
-  })
-)
+function authToken(c: any) {
+  const value = c.req.header('authorization') || ''
+  return value.startsWith('Bearer ') ? value.slice(7) : ''
+}
 
-app.get('/', (c) =>
-  c.json({
-    name: 'AI Agent Manager API',
-    version: '0.2.0',
-    status: 'ok',
-    firstPaymentStatus: false,
-    runtime: 'vercel',
-    dbConfigured: Boolean(process.env.DATABASE_URL),
-  })
-)
+const configuredOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+app.use('*', cors({
+  origin: (origin) => {
+    if (!origin) return configuredOrigins[0] || ''
+    if (configuredOrigins.includes(origin)) return origin
+    return ''
+  },
+  credentials: true,
+}))
+
+app.get('/', (c) => c.json({
+  name: 'AI Agent Manager API',
+  version: '0.2.1',
+  status: 'ok',
+  firstPaymentStatus: false,
+  runtime: 'vercel',
+  dbConfigured: Boolean(process.env.DATABASE_URL),
+  authConfigured: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32),
+  paymentConfigured: Boolean(process.env.PAYMENT_PROVIDER),
+}))
 
 app.get('/health', async (c) => {
   const prisma = db()
@@ -79,183 +86,103 @@ app.get('/health', async (c) => {
 app.post('/auth/register', async (c) => {
   const prisma = db()
   if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503)
-
   let body: any
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'INVALID_JSON' }, 400)
-  }
-
+  try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }
   const email = String(body.email || '').trim().toLowerCase()
   const password = String(body.password || '')
-  const name = body.name ? String(body.name).trim() : null
-
-  if (!email || !password || password.length < 6) {
-    return c.json({ error: 'INVALID_INPUT', message: 'email and password (min 6) required' }, 400)
+  const name = body.name ? String(body.name).trim().slice(0, 120) : null
+  if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 6 || password.length > 128) {
+    return c.json({ error: 'INVALID_INPUT', message: 'valid email and password (6-128) required' }, 400)
   }
-
   try {
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) return c.json({ error: 'EMAIL_ALREADY_EXISTS' }, 409)
-
-    const passwordHash = await bcrypt.hash(password, 10)
+    const passwordHash = await bcrypt.hash(password, 12)
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name,
-        tenants: {
-          create: {
-            name: name || email.split('@')[0],
-            slug: `t-${Date.now().toString(36)}`,
-            plan: 'FREE',
-            credits: 100,
-          },
-        },
+        ownedTenants: { create: { name: name || email.split('@')[0], slug: `t-${Date.now().toString(36)}`, plan: 'FREE', credits: 100 } },
       },
-      include: { tenants: true },
+      include: { ownedTenants: true },
     })
-
     const token = await signToken({ sub: user.id, email: user.email })
-    return c.json({
-      token,
-      user: { id: user.id, email: user.email, name: user.name },
-      tenant: user.tenants[0]
-        ? { id: user.tenants[0].id, name: user.tenants[0].name, credits: user.tenants[0].credits, plan: user.tenants[0].plan }
-        : null,
-    })
+    const tenant = user.ownedTenants[0]
+    return c.json({ token, user: { id: user.id, email: user.email, name: user.name }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null })
   } catch (e: any) {
     console.error(e)
-    return c.json({ error: 'REGISTER_FAILED', message: e?.message || 'failed' }, 500)
+    return c.json({ error: 'REGISTER_FAILED' }, 500)
   }
 })
 
 app.post('/auth/login', async (c) => {
   const prisma = db()
   if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503)
-
   let body: any
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'INVALID_JSON' }, 400)
-  }
-
+  try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }
   const email = String(body.email || '').trim().toLowerCase()
   const password = String(body.password || '')
   if (!email || !password) return c.json({ error: 'INVALID_INPUT' }, 400)
-
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { tenants: true },
-    })
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      return c.json({ error: 'INVALID_CREDENTIALS' }, 401)
-    }
-
+    const user = await prisma.user.findUnique({ where: { email }, include: { ownedTenants: true } })
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return c.json({ error: 'INVALID_CREDENTIALS' }, 401)
     const token = await signToken({ sub: user.id, email: user.email })
-    return c.json({
-      token,
-      user: { id: user.id, email: user.email, name: user.name },
-      tenant: user.tenants[0]
-        ? { id: user.tenants[0].id, name: user.tenants[0].name, credits: user.tenants[0].credits, plan: user.tenants[0].plan }
-        : null,
-    })
+    const tenant = user.ownedTenants[0]
+    return c.json({ token, user: { id: user.id, email: user.email, name: user.name }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null })
   } catch (e: any) {
     console.error(e)
-    return c.json({ error: 'LOGIN_FAILED', message: e?.message || 'failed' }, 500)
+    return c.json({ error: 'LOGIN_FAILED' }, 500)
   }
 })
 
 app.get('/auth/me', async (c) => {
   const prisma = db()
   if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503)
-
-  const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const token = authToken(c)
   if (!token) return c.json({ error: 'UNAUTHORIZED' }, 401)
-
   try {
     const payload = await verifyToken(token)
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: { tenants: true },
-    })
-    if (!user) return c.json({ error: 'UNAUTHORIZED' }, 401)
-    return c.json({
-      user: { id: user.id, email: user.email, name: user.name },
-      tenant: user.tenants[0]
-        ? { id: user.tenants[0].id, name: user.tenants[0].name, credits: user.tenants[0].credits, plan: user.tenants[0].plan }
-        : null,
-    })
-  } catch {
-    return c.json({ error: 'UNAUTHORIZED' }, 401)
-  }
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: { ownedTenants: true } })
+    if (!user || !user.isActive) return c.json({ error: 'UNAUTHORIZED' }, 401)
+    const tenant = user.ownedTenants[0]
+    return c.json({ user: { id: user.id, email: user.email, name: user.name }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null })
+  } catch { return c.json({ error: 'UNAUTHORIZED' }, 401) }
 })
 
 app.post('/billing/checkout', async (c) => {
   const prisma = db()
   if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503)
-
-  const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const token = authToken(c)
   if (!token) return c.json({ error: 'UNAUTHORIZED' }, 401)
-
+  let payload: { sub: string; email: string }
+  try { payload = await verifyToken(token) } catch { return c.json({ error: 'UNAUTHORIZED' }, 401) }
+  let body: any = {}
+  try { body = await c.req.json() } catch {}
+  const amount = Number(body.amount)
+  if (!Number.isSafeInteger(amount) || amount < 1000 || amount > 100_000_000) return c.json({ error: 'INVALID_AMOUNT' }, 400)
+  const provider = process.env.PAYMENT_PROVIDER
+  if (!provider) return c.json({ error: 'PAYMENT_PROVIDER_NOT_CONFIGURED', message: 'Connect a real gateway before accepting payments.' }, 503)
   try {
-    const payload = await verifyToken(token)
-    let body: any = {}
-    try {
-      body = await c.req.json()
-    } catch {}
-
-    const amount = Number(body.amount || 100000)
-    const payment = await prisma.payment.create({
-      data: {
-        userId: payload.sub,
-        amount,
-        currency: 'IRR',
-        status: 'PENDING',
-        provider: process.env.PAYMENT_PROVIDER || 'stub',
-      },
-    })
-
-    if (process.env.PAYMENT_STUB_AUTO_SUCCESS === 'true') {
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: 'SUCCESS', refId: `stub_${Date.now()}` },
-      })
+    const payment = await prisma.payment.create({ data: { userId: payload.sub, amount, currency: 'IRR', status: 'PENDING', provider } })
+    if (process.env.PAYMENT_STUB_AUTO_SUCCESS === 'true' && process.env.NODE_ENV !== 'production') {
       const tenant = await prisma.tenant.findFirst({ where: { ownerId: payload.sub } })
-      if (tenant) {
-        await prisma.tenant.update({
-          where: { id: tenant.id },
-          data: { credits: { increment: 500 }, plan: tenant.plan === 'FREE' ? 'STARTER' : tenant.plan },
-        })
-      }
-      return c.json({
-        paymentId: payment.id,
-        status: 'SUCCESS',
-        firstPaymentStatus: true,
-        message: 'Stub payment succeeded',
+      await prisma.$transaction(async (tx) => {
+        await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS', refId: `stub_${Date.now()}` } })
+        if (tenant) await tx.tenant.update({ where: { id: tenant.id }, data: { credits: { increment: 500 }, plan: tenant.plan === 'FREE' ? 'STARTER' : tenant.plan } })
       })
+      return c.json({ paymentId: payment.id, status: 'SUCCESS', firstPaymentStatus: true, message: 'Development stub payment succeeded' })
     }
-
-    return c.json({
-      paymentId: payment.id,
-      status: 'PENDING',
-      firstPaymentStatus: false,
-      message: 'Real gateway not connected. For test set PAYMENT_STUB_AUTO_SUCCESS=true',
-      checkoutUrl: null,
-    })
+    return c.json({ paymentId: payment.id, status: 'PENDING', firstPaymentStatus: false, message: 'Payment created; gateway adapter must complete the redirect/callback flow.', checkoutUrl: null }, 202)
   } catch (e: any) {
-    return c.json({ error: 'CHECKOUT_FAILED', message: e?.message }, 500)
+    console.error(e)
+    return c.json({ error: 'CHECKOUT_FAILED' }, 500)
   }
 })
 
 app.onError((err, c) => {
   console.error(err)
-  return c.json({ error: err.message || 'INTERNAL_ERROR' }, 500)
+  return c.json({ error: 'INTERNAL_ERROR' }, 500)
 })
 
 export default app
