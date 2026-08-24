@@ -1,0 +1,6 @@
+{
+  "name": "@aam/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "echo open apps/web/index.html" }
+}
