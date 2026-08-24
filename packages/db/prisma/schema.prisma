@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Full schema is in repo local; core models User Tenant Membership Role Permission Session ApiKey AuditLog Agent AgentRun Plan Subscription CreditWallet CreditTransaction Payment
-// See packages/db/prisma/schema.prisma in source tree for complete definitions.
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -20,21 +18,23 @@ model User {
   memberships  Membership[]
   sessions     Session[]
   ownedTenants Tenant[] @relation("TenantOwner")
+  payments     Payment[]
   @@map("users")
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  ownerId   String
-  plan      String   @default("FREE")
-  status    String   @default("ACTIVE")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  owner     User     @relation("TenantOwner", fields: [ownerId], references: [id])
-  memberships Membership[]
-  agents    Agent[]
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  ownerId      String
+  plan         String   @default("FREE")
+  status       String   @default("ACTIVE")
+  credits      Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  owner        User     @relation("TenantOwner", fields: [ownerId], references: [id])
+  memberships  Membership[]
+  agents       Agent[]
   @@map("tenants")
 }
 
@@ -96,4 +96,21 @@ model AgentRun {
   createdAt   DateTime  @default(now())
   agent       Agent     @relation(fields: [agentId], references: [id])
   @@map("agent_runs")
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  userId     String
+  amount     Int
+  currency   String   @default("IRR")
+  status     String   @default("PENDING")
+  provider   String
+  refId      String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, status])
+  @@index([provider, refId])
+  @@map("payments")
 }
