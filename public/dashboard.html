@@ -6,27 +6,25 @@
   <title>داشبورد — AI Agent Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>body{font-family:Vazirmatn,sans-serif}.card{background:#0f172a;border:1px solid #1e293b;border-radius:18px}</style>
+  <style>body{font-family:Vazirmatn,sans-serif}.card{background:#0f172a;border:1px solid #1e293b;border-radius:18px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}</style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen">
   <header class="border-b border-slate-800 px-5 py-4 flex justify-between items-center">
     <div><div class="font-extrabold text-lg">AI Agent Manager</div><div class="text-xs text-slate-500">کنسول مدیریت</div></div>
-    <a href="/" class="text-sm text-indigo-400">خانه</a>
+    <div class="flex gap-4 items-center"><a id="adminLink" href="/admin" class="hidden text-sm text-amber-400">مدیریت</a><a href="/" class="text-sm text-indigo-400">خانه</a></div>
   </header>
-  <main class="max-w-5xl mx-auto px-5 py-8 space-y-5">
+  <main class="max-w-6xl mx-auto px-5 py-8 space-y-5">
     <section class="card p-5">
       <div class="flex flex-wrap gap-3 items-center justify-between">
-        <div><h1 class="text-2xl font-bold">داشبورد</h1><p class="text-slate-400 text-sm mt-1">وضعیت سرویس، حساب و اعتبار شما</p></div>
+        <div><h1 class="text-2xl font-bold">داشبورد</h1><p class="text-slate-400 text-sm mt-1">مدیریت Agent و اجرای زنده کارها</p></div>
         <div id="status" class="text-sm px-3 py-2 rounded-lg bg-slate-800">در حال بررسی...</div>
       </div>
     </section>
-
     <section class="grid md:grid-cols-3 gap-4">
       <div class="card p-5"><div class="text-slate-400 text-sm">وضعیت دیتابیس</div><div id="db" class="text-xl font-bold mt-2">—</div></div>
       <div class="card p-5"><div class="text-slate-400 text-sm">اعتبار</div><div id="credits" class="text-xl font-bold mt-2">—</div></div>
       <div class="card p-5"><div class="text-slate-400 text-sm">پلن</div><div id="plan" class="text-xl font-bold mt-2">—</div></div>
     </section>
-
     <section class="grid lg:grid-cols-2 gap-5">
       <div class="card p-5 space-y-3">
         <h2 class="font-bold">ورود / ثبت‌نام</h2>
@@ -36,47 +34,44 @@
         <div class="flex gap-2"><button onclick="registerUser()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg">ثبت‌نام</button><button onclick="loginUser()" class="border border-slate-600 hover:bg-slate-800 px-4 py-2 rounded-lg">ورود</button></div>
       </div>
       <div class="card p-5 space-y-3">
-        <h2 class="font-bold">شارژ اعتبار</h2>
-        <p class="text-sm text-slate-400">درگاه واقعی پس از تنظیم PAYMENT_PROVIDER فعال می‌شود.</p>
+        <h2 class="font-bold">شارژ اعتبار</h2><p class="text-sm text-slate-400">درگاه واقعی پس از تنظیم PAYMENT_PROVIDER فعال می‌شود.</p>
         <input id="amount" type="number" min="1000" max="100000000" value="100000" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
         <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg">ایجاد پرداخت</button>
         <button onclick="loadMe()" class="w-full border border-slate-700 px-4 py-2 rounded-lg">به‌روزرسانی حساب</button>
       </div>
     </section>
-
-    <pre id="out" class="card p-4 text-xs text-slate-300 overflow-auto min-h-24 whitespace-pre-wrap"></pre>
+    <section class="card p-5 space-y-4">
+      <div class="flex justify-between items-center"><div><h2 class="font-bold text-lg">Agentهای من</h2><p class="text-xs text-slate-500">اجرای زنده با SSE</p></div><button onclick="loadAgents()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
+      <div id="agents" class="grid md:grid-cols-2 gap-3"></div>
+      <div class="grid gap-3 border-t border-slate-800 pt-4"><input id="agentName" placeholder="نام Agent جدید" class="w-full bg-slate-800 rounded-lg px-3 py-2" /><textarea id="agentPrompt" placeholder="System Prompt" class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-20"></textarea><button onclick="createAgent()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg">ساخت Agent</button></div>
+    </section>
+    <section class="card p-5 space-y-3">
+      <div class="flex flex-wrap gap-2 items-center justify-between"><h2 class="font-bold text-lg">اجرای زنده</h2><span id="runState" class="text-xs px-2 py-1 rounded bg-slate-800">آماده</span></div>
+      <select id="agentSelect" class="w-full bg-slate-800 rounded-lg px-3 py-2"><option value="">ابتدا Agent را انتخاب کنید</option></select>
+      <textarea id="runInput" placeholder="درخواست خود را بنویسید..." class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-28"></textarea>
+      <button id="runBtn" onclick="runStream()" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded-lg font-bold">اجرای Agent</button>
+      <div id="live" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-32 whitespace-pre-wrap text-sm"></div>
+      <div id="events" class="text-xs text-slate-500 space-y-1"></div>
+    </section>
+    <pre id="out" class="card p-4 text-xs text-slate-300 overflow-auto min-h-20 whitespace-pre-wrap"></pre>
   </main>
 <script>
-const API='/api';
-const $=id=>document.getElementById(id);
-const token=()=>localStorage.getItem('token')||'';
+const API='/api'; const $=id=>document.getElementById(id); const token=()=>localStorage.getItem('token')||''; let agents=[];
 function show(x){$('out').textContent=typeof x==='string'?x:JSON.stringify(x,null,2)}
-async function request(path, options={}){
-  const headers={...(options.headers||{}),'Content-Type':'application/json'};
-  if(token()) headers.Authorization='Bearer '+token();
-  const r=await fetch(API+path,{...options,headers});
-  let data; try{data=await r.json()}catch{data={error:'INVALID_RESPONSE'}}
-  if(!r.ok) throw Object.assign(new Error(data.message||data.error||('HTTP '+r.status)),{data,status:r.status});
-  return data;
-}
-async function health(){
-  try{const d=await request('/health');$('db').textContent=d.database==='connected'?'متصل':d.database;$('status').textContent=d.status==='ok'?'API سالم':'API نیازمند تنظیمات';show(d)}
-  catch(e){$('status').textContent='خطا';show(e.message)}
-}
-function applyAccount(d){$('credits').textContent=d.tenant?d.tenant.credits:'—';$('plan').textContent=d.tenant?d.tenant.plan:'—';}
-async function loadMe(){
-  if(!token()){applyAccount({});show('ابتدا وارد شوید.');return}
-  try{const d=await request('/auth/me');applyAccount(d);show(d)}catch(e){localStorage.removeItem('token');applyAccount({});show(e.message)}
-}
-async function registerUser(){
-  try{const d=await request('/auth/register',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value,name:$('name').value||undefined})});localStorage.setItem('token',d.token);applyAccount(d);show(d)}catch(e){show(e.data||e.message)}
-}
-async function loginUser(){
-  try{const d=await request('/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});localStorage.setItem('token',d.token);applyAccount(d);show(d)}catch(e){show(e.data||e.message)}
-}
-async function checkout(){
-  try{const d=await request('/billing/checkout',{method:'POST',body:JSON.stringify({amount:Number($('amount').value)})});show(d);if(d.status==='SUCCESS')await loadMe()}catch(e){show(e.data||e.message)}
-}
+async function request(path,options={}){const headers={...(options.headers||{}),'Content-Type':'application/json'};if(token())headers.Authorization='Bearer '+token();const r=await fetch(API+path,{...options,headers});let d;try{d=await r.json()}catch{d={error:'INVALID_RESPONSE'}}if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{data:d,status:r.status});return d}
+async function health(){try{const d=await request('/health');$('db').textContent=d.database==='connected'?'متصل':d.database;$('status').textContent=d.status==='ok'?'API سالم':'API نیازمند تنظیمات'}catch(e){$('status').textContent='خطا';show(e.message)}}
+function applyAccount(d){$('credits').textContent=d.tenant?d.tenant.credits:'—';$('plan').textContent=d.tenant?d.tenant.plan:'—';if(d.user?.isAdmin)$('adminLink').classList.remove('hidden')}
+async function loadMe(){if(!token()){applyAccount({});show('ابتدا وارد شوید.');return}try{const d=await request('/auth/me');applyAccount(d);await loadAgents();show(d)}catch(e){localStorage.removeItem('token');applyAccount({});show(e.message)}}
+async function registerUser(){try{const d=await request('/auth/register',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value,name:$('name').value||undefined})});localStorage.setItem('token',d.token);applyAccount(d);await loadAgents();show(d)}catch(e){show(e.data||e.message)}}
+async function loginUser(){try{const d=await request('/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});localStorage.setItem('token',d.token);applyAccount(d);await loadAgents();show(d)}catch(e){show(e.data||e.message)}}
+async function checkout(){try{const d=await request('/billing/checkout',{method:'POST',body:JSON.stringify({amount:Number($('amount').value)})});show(d);if(d.status==='SUCCESS')await loadMe()}catch(e){show(e.data||e.message)}}
+async function loadAgents(){if(!token())return;try{const d=await request('/agents');agents=d.agents||[];$('agents').innerHTML=agents.length?agents.map(a=>`<button onclick="selectAgent('${a.id}')" class="text-right bg-slate-800 hover:bg-slate-700 rounded-xl p-4"><div class="font-bold">${escapeHtml(a.name)}</div><div class="text-xs text-slate-500 mt-1">${escapeHtml(a.slug)}</div></button>`).join(''):'<div class="text-slate-500 text-sm">هنوز Agentی ساخته نشده است.</div>';$('agentSelect').innerHTML='<option value="">انتخاب Agent</option>'+agents.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}catch(e){show(e.message)}}
+async function createAgent(){try{const name=$('agentName').value.trim();if(!name)return show('نام Agent الزامی است.');const d=await request('/agents',{method:'POST',body:JSON.stringify({name,systemPrompt:$('agentPrompt').value.trim()||undefined})});$('agentName').value='';$('agentPrompt').value='';await loadAgents();selectAgent(d.agent.id);show(d)}catch(e){show(e.data||e.message)}}
+function selectAgent(id){$('agentSelect').value=id}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function addEvent(text){const el=document.createElement('div');el.textContent=text;$('events').prepend(el);if($('events').children.length>30)$('events').lastChild.remove()}
+async function runStream(){const id=$('agentSelect').value, input=$('runInput').value.trim();if(!id)return show('یک Agent انتخاب کنید.');if(!input)return show('درخواست را وارد کنید.');if(!token())return show('ابتدا وارد شوید.');$('runBtn').disabled=true;$('runState').textContent='در حال اجرا';$('live').textContent='';$('events').innerHTML='';try{const r=await fetch(API+'/agents/'+encodeURIComponent(id)+'/stream',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:JSON.stringify({input})});if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.error||('HTTP '+r.status))}if(!r.body)throw new Error('STREAM_UNSUPPORTED');const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';for(const chunk of chunks){const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const event=JSON.parse(line.slice(6));handleStreamEvent(event)}}$('runState').textContent='تکمیل شد'}catch(e){$('runState').textContent='خطا';addEvent('خطا: '+e.message);show(e.message)}finally{$('runBtn').disabled=false}}
+function handleStreamEvent(e){if(e.type==='delta'){$('live').textContent+=e.text||'';return}if(e.type==='status'){const labels={thinking:'در حال فکر کردن'};$('runState').textContent=labels[e.status]||e.status;addEvent((labels[e.status]||e.status)+(e.iteration?` — مرحله ${e.iteration}`:''));return}if(e.type==='provider'){addEvent(`Provider: ${e.provider} / ${e.model}`);return}if(e.type==='tool_start'){addEvent(`شروع ابزار: ${e.name}`);$('runState').textContent='در حال اجرای ابزار';return}if(e.type==='tool_result'){addEvent(`نتیجه ابزار: ${e.name}`);$('runState').textContent='در حال ادامه';return}if(e.type==='done'){addEvent(`تکمیل در مرحله ${e.iteration}`);$('runState').textContent='تکمیل شد';return}if(e.type==='error'){throw new Error(e.error||'AGENT_STREAM_FAILED')}}
 health();loadMe();
 </script>
 </body>
