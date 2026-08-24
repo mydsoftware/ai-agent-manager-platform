@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — AI Agent Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>body{font-family:Vazirmatn,sans-serif}</style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-6">
+  <h1 class="text-2xl font-bold mb-2">داشبورد</h1>
+  <p class="text-slate-400 mb-6">ایجنت‌ها و اعتبار</p>
+  <div id="status" class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">در حال بررسی API...</div>
+  <a href="/" class="text-indigo-400">خانه</a>
+  <script>
+    const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? 'http://localhost:3001/api' : '/api';
+    fetch(API + '/health').then(r => r.json()).then(d => {
+      document.getElementById('status').textContent = 'API: ' + JSON.stringify(d);
+    }).catch(e => {
+      document.getElementById('status').textContent = 'API offline: ' + e.message;
+    });
+  </script>
+</body>
+</html>
