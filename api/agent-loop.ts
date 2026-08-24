@@ -2,13 +2,14 @@ import { executeTool, getTool } from './tools'
 import { getLLMProvider } from './providers'
 import { validateToolPermission } from './policy'
 import { prisma } from './runtime'
+import { retrieveMemory } from './rag'
 
-export type LoopInput = { agent: any; tenantId: string; userId: string; input: unknown; maxIterations?: number }
+export type LoopInput = { agent: any; tenantId: string; userId: string; input: unknown; maxIterations?: number; memoryLimit?: number }
 type Decision = { final?: string; tool?: { name: string; input: unknown } }
 function parseDecision(text: string): Decision { try { const parsed = JSON.parse(text); if (parsed?.tool?.name) return parsed as Decision; if (typeof parsed?.final === 'string') return parsed as Decision } catch {} return { final: text } }
-export async function executeAgentLoop({ agent, tenantId, userId, input, maxIterations = 5 }: LoopInput) {
+export async function executeAgentLoop({ agent, tenantId, userId, input, maxIterations = 5, memoryLimit = 8 }: LoopInput) {
   const provider = getLLMProvider(), allowed = new Set((agent.tools || []).map(String)); let context = typeof input === 'string' ? input : JSON.stringify(input); let totalInput = 0, totalOutput = 0; const trace: any[] = []
-  const memories = await prisma.agentMemory.findMany({ where: { agentId: agent.id, tenantId }, orderBy: { createdAt: 'desc' }, take: 8, select: { content: true } })
+  const memories = await retrieveMemory(agent.id, tenantId, context, memoryLimit)
   if (memories.length) context = `حافظه مرتبط Agent:\n${memories.map((m) => `- ${m.content}`).join('\n')}\n\nدرخواست فعلی:\n${context}`
   for (let iteration = 1; iteration <= Math.min(Math.max(maxIterations, 1), 10); iteration++) {
     const toolInstructions = allowed.size ? `اگر نیاز به ابزار داری فقط JSON زیر را برگردان: {"tool":{"name":"TOOL_NAME","input":{}}}. ابزارهای مجاز: ${[...allowed].join(', ')}. در غیر این صورت: {"final":"پاسخ نهایی"}.` : 'فقط JSON زیر را برگردان: {"final":"پاسخ نهایی"}.'
