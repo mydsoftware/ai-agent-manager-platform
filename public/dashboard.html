@@ -10,17 +10,40 @@
 </head>
 <body class="bg-slate-950 text-white min-h-screen p-6">
   <h1 class="text-2xl font-bold mb-2">داشبورد</h1>
-  <p class="text-slate-400 mb-6">ایجنت‌ها و اعتبار</p>
-  <div id="status" class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">در حال بررسی API...</div>
-  <a href="/" class="text-indigo-400">خانه</a>
+  <p class="text-slate-400 mb-6">ثبت‌نام / ورود و اعتبار</p>
+  <div id="health" class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 text-sm">...</div>
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 max-w-md space-y-3">
+    <input id="email" type="email" placeholder="ایمیل" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+    <input id="password" type="password" placeholder="رمز (حداقل ۶)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+    <input id="name" type="text" placeholder="نام (اختیاری)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+    <div class="flex gap-2">
+      <button onclick="register()" class="bg-indigo-600 px-4 py-2 rounded-lg">ثبت‌نام</button>
+      <button onclick="login()" class="border border-slate-600 px-4 py-2 rounded-lg">ورود</button>
+    </div>
+  </div>
+  <pre id="out" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs overflow-auto"></pre>
+  <p class="mt-4"><a href="/" class="text-indigo-400">خانه</a></p>
   <script>
-    const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-      ? 'http://localhost:3001/api' : '/api';
+    const API = '/api';
     fetch(API + '/health').then(r => r.json()).then(d => {
-      document.getElementById('status').textContent = 'API: ' + JSON.stringify(d);
-    }).catch(e => {
-      document.getElementById('status').textContent = 'API offline: ' + e.message;
-    });
+      document.getElementById('health').textContent = JSON.stringify(d);
+    }).catch(e => document.getElementById('health').textContent = e.message);
+
+    function show(x) { document.getElementById('out').textContent = JSON.stringify(x, null, 2); }
+    async function register() {
+      const body = { email: email.value, password: password.value, name: name.value || undefined };
+      const r = await fetch(API + '/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (j.token) localStorage.setItem('token', j.token);
+      show(j);
+    }
+    async function login() {
+      const body = { email: email.value, password: password.value };
+      const r = await fetch(API + '/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (j.token) localStorage.setItem('token', j.token);
+      show(j);
+    }
   </script>
 </body>
 </html>
