@@ -1,0 +1,26 @@
+name: Security Contract
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify security contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tests/security-contract.md
+          grep -q 'User A → Agent B' tests/security-contract.md
+          grep -q 'User A → Memory B' tests/security-contract.md
+          grep -q 'User A → Runs B' tests/security-contract.md
+          grep -q 'User A → Admin overview' tests/security-contract.md
+          grep -q 'User A → Tool of Agent B' tests/security-contract.md
+          grep -q 'Anonymous → protected API' tests/security-contract.md
+          grep -q 'Stream over limit' tests/security-contract.md
+          echo 'Security isolation contract is present and complete.'
