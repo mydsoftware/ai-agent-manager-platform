@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Env & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Test
+coverage/
+
+# Prisma
+packages/db/prisma/*.db
+
+# Docker
+docker-data/
+
+# Temp
+tmp/
+temp/
+.turbo/
+.cache/

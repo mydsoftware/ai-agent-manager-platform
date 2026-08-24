@@ -1,0 +1,16 @@
+{
+  "name": "ai-agent-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Agent Manager — Open-Core Platform for Autonomous AI Agents",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @aam/web --filter @aam/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @aam/db generate",
+    "db:migrate": "pnpm --filter @aam/db migrate",
+    "db:studio": "pnpm --filter @aam/db studio"
+  },
+  "engines": { "node": ">=20" }
+}
