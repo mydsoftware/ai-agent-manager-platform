@@ -39,6 +39,8 @@ registerTool({
 })
 
 export async function executeTool(name: string, input: unknown, context: ToolContext) {
+  if (!context?.tenantId || !context?.userId) throw new Error('INVALID_TOOL_CONTEXT')
+  if (context.tenantId.length > 200 || context.userId.length > 200) throw new Error('INVALID_TOOL_CONTEXT')
   const tool = getTool(name)
   if (!tool) throw new Error('TOOL_NOT_FOUND')
   return tool.execute(input, context)
