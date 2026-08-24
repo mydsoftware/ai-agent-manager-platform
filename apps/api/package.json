@@ -1,0 +1,29 @@
+{
+  "name": "@aam/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aam/agents": "workspace:*",
+    "@aam/billing": "workspace:*",
+    "@aam/core": "workspace:*",
+    "@aam/db": "workspace:*",
+    "@aam/shared": "workspace:*",
+    "@aam/tools": "workspace:*",
+    "@aam/workflow": "workspace:*",
+    "@aam/memory": "workspace:*",
+    "@hono/node-server": "^1.13.1",
+    "hono": "^4.6.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

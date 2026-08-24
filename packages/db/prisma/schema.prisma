@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Full schema is in repo local; core models User Tenant Membership Role Permission Session ApiKey AuditLog Agent AgentRun Plan Subscription CreditWallet CreditTransaction Payment
+// See packages/db/prisma/schema.prisma in source tree for complete definitions.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+  ownedTenants Tenant[] @relation("TenantOwner")
+  @@map("users")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  plan      String   @default("FREE")
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     User     @relation("TenantOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  agents    Agent[]
+  @@map("tenants")
+}
+
+model Membership {
+  id       String @id @default(cuid())
+  userId   String
+  tenantId String
+  status   String @default("ACTIVE")
+  user     User   @relation(fields: [userId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  @@unique([userId, tenantId])
+  @@map("memberships")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("sessions")
+}
+
+model Agent {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  slug           String
+  version        String   @default("1.0.0")
+  systemPrompt   String?
+  description    String?
+  tools          String[]
+  permissions    String[]
+  riskLevel      String   @default("LOW")
+  approvalPolicy String   @default("AUTO")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs           AgentRun[]
+  @@unique([tenantId, slug])
+  @@map("agents")
+}
+
+model AgentRun {
+  id          String    @id @default(cuid())
+  agentId     String
+  tenantId    String
+  status      String    @default("PENDING")
+  input       Json?
+  output      Json?
+  error       String?
+  tokensUsed  Int       @default(0)
+  creditsUsed Int       @default(0)
+  iterations  Int       @default(0)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  agent       Agent     @relation(fields: [agentId], references: [id])
+  @@map("agent_runs")
+}
