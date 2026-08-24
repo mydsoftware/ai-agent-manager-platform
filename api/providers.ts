@@ -1,8 +1,6 @@
 export type LLMRequest = { model?: string; system?: string; prompt: string; temperature?: number; maxTokens?: number }
 export type LLMResponse = { text: string; inputTokens?: number; outputTokens?: number; provider: string; model: string }
-
 export interface LLMProvider { name: string; generate(request: LLMRequest): Promise<LLMResponse> }
-
 class OpenAICompatibleProvider implements LLMProvider {
   constructor(public name: string, private baseUrl: string, private apiKey: string, private defaultModel: string) {}
   async generate(request: LLMRequest): Promise<LLMResponse> {
@@ -13,20 +11,17 @@ class OpenAICompatibleProvider implements LLMProvider {
     return { text: String(choice.message.content), inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens, provider: this.name, model: String(data?.model || request.model || this.defaultModel) }
   }
 }
-
+function configuredProviders(): LLMProvider[] {
+  const list: LLMProvider[] = []
+  if (process.env.OPENAI_API_KEY) list.push(new OpenAICompatibleProvider('openai', process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1', process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'gpt-4o-mini'))
+  if (process.env.OPENROUTER_API_KEY) list.push(new OpenAICompatibleProvider('openrouter', process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1', process.env.OPENROUTER_API_KEY, process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini'))
+  if (process.env.LLM_API_KEY && process.env.LLM_BASE_URL) list.push(new OpenAICompatibleProvider('custom', process.env.LLM_BASE_URL, process.env.LLM_API_KEY, process.env.LLM_MODEL || 'default'))
+  return list
+}
 export function getLLMProvider(): LLMProvider {
-  const provider = (process.env.LLM_PROVIDER || 'openai').toLowerCase()
-  if (provider === 'openai') {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY_NOT_CONFIGURED')
-    return new OpenAICompatibleProvider('openai', process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1', process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'gpt-4o-mini')
-  }
-  if (provider === 'openrouter') {
-    if (!process.env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY_NOT_CONFIGURED')
-    return new OpenAICompatibleProvider('openrouter', process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1', process.env.OPENROUTER_API_KEY, process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini')
-  }
-  if (provider === 'custom') {
-    if (!process.env.LLM_API_KEY || !process.env.LLM_BASE_URL) throw new Error('CUSTOM_LLM_NOT_CONFIGURED')
-    return new OpenAICompatibleProvider('custom', process.env.LLM_BASE_URL, process.env.LLM_API_KEY, process.env.LLM_MODEL || 'default')
-  }
-  throw new Error('UNSUPPORTED_LLM_PROVIDER')
+  const providers = configuredProviders(); if (!providers.length) throw new Error('NO_LLM_PROVIDER_CONFIGURED')
+  const preferred = (process.env.LLM_PROVIDER || '').toLowerCase(); const first = providers.find((p) => p.name === preferred) || providers[0]
+  return { name: first.name, async generate(request) { const ordered = [first, ...providers.filter((p) => p.name !== first.name)]; let last: unknown
+      for (const provider of ordered) { try { return await provider.generate(request) } catch (e) { last = e } }
+      throw last instanceof Error ? last : new Error('ALL_LLM_PROVIDERS_FAILED') } }
 }
