@@ -21,8 +21,7 @@
   "devDependencies": {
     "prisma": "^5.22.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.2.4",
-    "typescript": "^5.7.2"
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=20"
