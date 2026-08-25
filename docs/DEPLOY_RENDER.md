@@ -5,31 +5,44 @@
 ```
 GitHub Pages (UI)
       ↓
-Render Web Service (API Node)
+Render Web Service (API)
       ↓
 Neon PostgreSQL
 ```
 
 ## مراحل
 
-1. [dashboard.render.com](https://dashboard.render.com) → New → Web Service
+1. [dashboard.render.com](https://dashboard.render.com) → New → **Web Service**
 2. Connect: `mydsoftware/ai-agent-manager-platform`
-3. Build: `npm install && npx prisma generate --schema prisma/schema.prisma`
-4. Start: `npm start`
-5. Plan: Free
+3. تنظیمات:
 
-## Env
+| فیلد | مقدار |
+|------|--------|
+| Name | `ai-agent-manager-api` |
+| Runtime | Node |
+| Build Command | `npm install && npx prisma generate --schema prisma/schema.prisma` |
+| Start Command | `npm start` |
+| Instance | Free |
 
-- DATABASE_URL = Neon connection string
-- JWT_SECRET = random ≥32 chars
-- CORS_ORIGINS = `https://mydsoftware.github.io,https://YOUR-SERVICE.onrender.com`
-- NODE_ENV = production
+4. Env:
 
-## بعد از Deploy
+- `DATABASE_URL` = Neon connection string
+- `JWT_SECRET` = random ≥32 chars
+- `CORS_ORIGINS` = `https://mydsoftware.github.io,https://YOUR-SERVICE.onrender.com`
+- `NODE_ENV` = `production`
 
-Health: `https://YOUR-SERVICE.onrender.com/api/health`
+5. Create Web Service و صبر تا Deploy سبز شود
 
-در GitHub Pages داشبورد:
-`API_URL=https://YOUR-SERVICE.onrender.com/api`
+6. تست:
+```
+https://YOUR-SERVICE.onrender.com/api/health
+```
+باید `"database":"connected"` باشد.
 
-Free plan بعد از بیکاری می‌خوابد؛ اولین درخواست ممکن است کند باشد.
+7. در GitHub Pages داشبورد:
+```
+API_URL=https://YOUR-SERVICE.onrender.com/api
+```
+
+## نکته Free plan
+سرویس بعد از بیکاری می‌خوابد؛ اولین درخواست ممکن است ۳۰–۶۰ ثانیه طول بکشد.

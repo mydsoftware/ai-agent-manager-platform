@@ -1,6 +1,6 @@
 /**
  * GitHub Pages frontend — NO secrets
- * After Render deploy: set API_URL to https://YOUR-SERVICE.onrender.com/api
+ * After Render deploy set API_URL to https://YOUR-SERVICE.onrender.com/api
  */
 (function () {
   var stored = null;
