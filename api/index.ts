@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+﻿import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
@@ -9,7 +9,7 @@ import { executeTool, getTool, listTools } from './tools'
 import { getUsage } from './usage'
 import { generateApiKey, findApiKey } from './keys'
 import { createCheckout } from './billing'
-import { publishListing, delistListing, listActiveListings, buyListing, listPurchases } from './marketplace'
+import { orchestrate, ensureSpecialistSeeds, SPECIALIST_SEEDS } from './orchestrator'
 import { resolveApproval } from './approvals'
 import { searchMemory } from './memory-api'
 import { retrieveMemory, saveMemory } from './rag'
@@ -163,73 +163,62 @@ app.get('/api-keys', async (c) => { try { const { prisma, tenant } = await requi
 app.delete('/api-keys/:id', async (c) => { try { const { prisma, tenant } = await requireUser(c); const row = await prisma.apiKey.findFirst({ where: { id: c.req.param('id'), tenantId: tenant.id } }); if (!row) return c.json({ error: 'API_KEY_NOT_FOUND' }, 404); await prisma.apiKey.update({ where: { id: row.id }, data: { revokedAt: new Date() } }); return c.json({ ok: true }) } catch (e: any) { return c.json({ error: e?.message || 'API_KEY_REVOKE_FAILED' }, 404) } })
 app.post('/approvals/:id/resolve', async (c) => { try { const { user, tenant } = await requireUser(c); let body: any = {}; try { body = await c.req.json() } catch {} const result = await resolveApproval(tenant.id, user.id, c.req.param('id'), Boolean(body.approved)); return c.json({ approval: result }) } catch (e: any) { return c.json({ error: e?.message || 'APPROVAL_RESOLVE_FAILED' }, 400) } })
 app.get('/admin/overview', async (c) => { try { const { prisma, user } = await requireUser(c); if (user.role !== 'ADMIN') return c.json({ error: 'FORBIDDEN' }, 403); const [users, tenants, agents, runs, payments] = await Promise.all([prisma.user.count(), prisma.tenant.count(), prisma.agent.count(), prisma.agentRun.count(), prisma.payment.count()]); return c.json({ users, tenants, agents, runs, payments }) } catch (e: any) { return c.json({ error: e?.message === 'FORBIDDEN' ? 'FORBIDDEN' : e?.message || 'ADMIN_FAILED' }, e?.message === 'FORBIDDEN' ? 403 : 401) } })
-app.post('/marketplace/listings', async (c) => {
+app.get('/specialists', async (c) => {
   try {
-    const rl = limited(c, 'publish', 20)
+    const rl = limited(c, 'specialists', 60)
     if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
-    const { prisma, user, tenant } = await requireUser(c)
+    const { prisma, tenant } = await requireUser(c)
+    if (!tenant) return c.json({ specialists: [] })
+    await ensureSpecialistSeeds(tenant.id)
+    const agents = await prisma.agent.findMany({ where: { tenantId: tenant.id, origin: { in: ['SEED', 'AUTO_GENERATED'] }, isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, name: true, specialty: true, description: true, keywords: true, origin: true } })
+    return c.json({ catalog: SPECIALIST_SEEDS.map((s) => ({ specialty: s.specialty, name: s.name, description: s.description })), specialists: agents })
+  } catch (e: any) {
+    return c.json({ error: e?.message || 'SPECIALISTS_FAILED' }, 401)
+  }
+})
+app.post('/orchestrator/request', async (c) => {
+  try {
+    const rl = limited(c, 'orchestrate', 6)
+    if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
+    const { user, tenant } = await requireUser(c)
     if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404)
     let body: any = {}
     try { body = await c.req.json() } catch {}
-    const listing = await publishListing(prisma, { agentId: String(body.agentId || ''), tenantId: tenant.id, userId: user.id, title: body.title, description: body.description, priceCredits: body.priceCredits })
-    return c.json({ listing: { id: listing.id, title: listing.title, priceCredits: listing.priceCredits, status: listing.status, salesCount: listing.salesCount } }, 201)
+    const requestText = String(body.input ?? body.request ?? '').trim()
+    if (!requestText || requestText.length > 5000) return c.json({ error: 'INVALID_REQUEST' }, 400)
+    const result = await orchestrate({ tenantId: tenant.id, userId: user.id, input: requestText, maxCycles: body.maxCycles })
+    return c.json(result, 200)
   } catch (e: any) {
-    const code = e?.message === 'AGENT_NOT_FOUND' || e?.message === 'LISTING_NOT_FOUND' ? 404 : 400
-    return c.json({ error: e?.message || 'PUBLISH_FAILED' }, code)
+    return c.json({ error: e?.message || 'ORCHESTRATION_FAILED' }, 400)
   }
 })
-app.get('/marketplace/listings', async (c) => {
+app.post('/orchestrator/request/stream', async (c) => {
   try {
-    const rl = limited(c, 'shop', 120)
+    const rl = limited(c, 'orchestrate-stream', 4)
     if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
-    const { prisma } = await requireUser(c)
-    return c.json({ listings: await listActiveListings(prisma, Number(c.req.query('take'))) })
+    const { user, tenant } = await requireUser(c)
+    if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404)
+    let body: any = {}
+    try { body = await c.req.json() } catch {}
+    const requestText = String(body.input ?? body.request ?? '').trim()
+    if (!requestText || requestText.length > 5000) return c.json({ error: 'INVALID_REQUEST' }, 400)
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (event: any) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+        try {
+          await orchestrate({ tenantId: tenant.id, userId: user.id, input: requestText, maxCycles: body.maxCycles }, send)
+        } catch (e: any) {
+          send({ type: 'error', error: e?.message || 'ORCHESTRATION_FAILED' })
+        } finally {
+          controller.close()
+        }
+      },
+    })
+    return new Response(stream, { headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' } })
   } catch (e: any) {
     const code = e?.message === 'UNAUTHORIZED' ? 401 : 400
-    return c.json({ error: e?.message || 'LISTINGS_FAILED' }, code)
-  }
-})
-app.get('/marketplace/my-listings', async (c) => {
-  try {
-    const { prisma, tenant } = await requireUser(c)
-    if (!tenant) return c.json({ listings: [] })
-    const rows = await prisma.publishedAgent.findMany({ where: { sellerTenantId: tenant.id }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, agentId: true, title: true, priceCredits: true, status: true, salesCount: true } })
-    return c.json({ listings: rows })
-  } catch (e: any) {
-    return c.json({ error: e?.message || 'MY_LISTINGS_FAILED' }, 401)
-  }
-})
-app.delete('/marketplace/listings/:id', async (c) => {
-  try {
-    const { prisma, tenant } = await requireUser(c)
-    if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404)
-    const listing = await delistListing(prisma, { listingId: c.req.param('id'), sellerTenantId: tenant.id })
-    return c.json({ listing: { id: listing.id, status: listing.status } })
-  } catch (e: any) {
-    const code = e?.message === 'LISTING_NOT_FOUND' ? 404 : 400
-    return c.json({ error: e?.message || 'DELIST_FAILED' }, code)
-  }
-})
-app.post('/marketplace/listings/:id/buy', async (c) => {
-  try {
-    const rl = limited(c, `buy:${c.req.param('id')}`, 10)
-    if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
-    const { prisma, user, tenant } = await requireUser(c)
-    if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404)
-    const result = await buyListing(prisma, { listingId: c.req.param('id'), buyerTenantId: tenant.id, buyerUserId: user.id })
-    return c.json(result, 201)
-  } catch (e: any) {
-    const code = e?.message === 'LISTING_NOT_FOUND' ? 404 : e?.message === 'INSUFFICIENT_CREDITS' ? 402 : 400
-    return c.json({ error: e?.message || 'PURCHASE_FAILED' }, code)
-  }
-})
-app.get('/marketplace/purchases', async (c) => {
-  try {
-    const { prisma, tenant } = await requireUser(c)
-    if (!tenant) return c.json({ purchases: [] })
-    return c.json({ purchases: await listPurchases(prisma, tenant.id) })
-  } catch (e: any) {
-    return c.json({ error: e?.message || 'PURCHASES_FAILED' }, 401)
+    return c.json({ error: e?.message || 'ORCHESTRATION_FAILED' }, code)
   }
 })
 app.onError((err, c) => { console.error(err); return c.json({ error: 'INTERNAL_ERROR' }) })

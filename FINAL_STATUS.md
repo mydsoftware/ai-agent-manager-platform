@@ -1,6 +1,15 @@
 # FINAL_STATUS
 
 ## وضعیت فعلی
+- **مدیریت ایجنت (Orchestrator): فعال** — `POST /orchestrator/request` (+ نسخه SSE `/stream`)
+  1. مشتری درخواست فارسی می‌دهد (مثلاً «سایت در زمینه ماهواره مرکزی»)
+  2. سیستم بین متخصص‌های موجود جستجو می‌کند (امتیاز تطبیق کلیدواژه/تخصص)
+  3. اگر متخصص موجود باشد از همان استفاده می‌شود؛ نبود، LLM مشخصات متخصص جدید را تولید و ثبت می‌کند
+  4. حلقه ReAct اجرا می‌شود (ابزارمحور، حافظه‌دار)
+  5. کنترل کیفیت (LLM-as-Judge) خروجی را می‌سنجد؛ نقص‌ها به چرخه بعدی بازخورد داده می‌شوند تا pass یا سقف چرخه
+- متخصص‌های پایه (auto-seed برای هر tenant): سئو · سایت‌ساز · وردپرس · برنامه‌نویس — `GET /specialists`
+- ستون‌های جدید Agent: `specialty`, `keywords`, `origin` (`SEED` | `AUTO_GENERATED` | `MANUAL`)
+- داشبورد: کارت «مدیریت ایجنت» با نمایش زنده جستجو/ساخت/چرخه/کیفیت + بخش «متخصص‌های من»
 - Auth register/login/me: implemented (JWT fail-closed در production، بدون secret پیش‌فرض)
 - Admin promotion: فقط از طریق `ADMIN_EMAILS` / `ADMIN_EMAIL` env — ایمیل هاردکد حذف شد
 - CORS: explicit allow-list support
@@ -11,15 +20,7 @@
 - Billing: `POST /billing/checkout` + `GET /billing/payments` با درگاه stub تستی
   - stub فقط خارج production و با `PAYMENT_STUB_AUTO_SUCCESS=true`
   - آداپتور درگاه واقعی (Zarinpal و…) بعد از دریافت دامنه به `PAYMENT_PROVIDER` وصل می‌شود
-- Marketplace (فروش Agent): منتشر شده و فعال
-  - `POST /marketplace/listings` انتشار Agent خودتان با قیمت اعتباری
-  - `GET /marketplace/listings` فروشگاه · `POST /marketplace/listings/:id/buy` خرید
-  - خرید در یک transaction اتمیک: کسر اعتبار خریدار → واریز به فروشنده → کپی کامل Agent به tenant خریدار → ثبت Purchase (جلوگیری از خرید تکراری با unique constraint)
-  - `GET /marketplace/my-listings` / `DELETE /marketplace/listings/:id` مدیریت آگهی · `GET /marketplace/purchases` تاریخچه
-  - داشبورد: بخش «فروشگاه Agentها» + انتشار/لغو انتشار + لیست خریدها
-- معماری: پکیج‌های استاب مونوریپو حذف شد (`apps/`, `packages/`, pnpm-workspace) — اپ فلت و صادق
-- Prisma schema: تک‌نسخه شد روی `prisma/schema.prisma` — Vercel و Render هر دو از همان استفاده می‌کنند
-- Tests: ۲۴ تست واحد (billing, credits, marketplace, security) — همه سبز
+- Tests: ۲۹ تست واحد (orchestrator, billing, credits, security) — همه سبز
 - Tests: unit tests برای billing/credits + security tests؛ اسکریپت `test:security` اضافه شد (CI سبز)
 
 ## باقی‌مانده برای درآمد واقعی
@@ -27,7 +28,7 @@
 2. خرید دامنه → دریافت درگاه پرداخت واقعی → پیاده‌سازی adapter با redirect/callback verification.
 3. Rate limit توزیع‌شده (Redis) برای serverless.
 4. وریفایکیشن ایمیل + بازیابی رمز عبور.
-5. Commission پلتفرم روی فروش‌ها (فعلاً ۱۰۰٪ به فروشنده می‌رسد).
+5. ابزارهای عملیاتی برای متخصص‌ها: اجرای کد/پیش‌نمایش سایت، انتشار وردپرس، آنالیز سئو واقعی (فعلاً فقط web_search).
 
 ## مهم
 `PAYMENT_STUB_AUTO_SUCCESS=true` فقط development است و وقتی `NODE_ENV=production` باشد سخت رد می‌شود.

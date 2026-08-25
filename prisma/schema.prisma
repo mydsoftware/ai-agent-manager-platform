@@ -69,16 +69,18 @@ model Agent {
   permissions    Json           @default("[]")
   riskLevel      String         @default("LOW")
   approvalPolicy String         @default("AUTO")
+  specialty      String?
+  keywords       Json           @default("[]")
+  origin         String         @default("MANUAL")
   isActive       Boolean        @default(true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   runs           AgentRun[]
   memories       AgentMemory[]
-  publishedAgent PublishedAgent?
-  purchasedClones Purchase[]
   @@unique([tenantId, slug])
   @@index([tenantId])
+  @@index([tenantId, specialty])
   @@map("agents")
 }
 
@@ -143,37 +145,4 @@ model ApiKey {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([tenantId, createdAt])
   @@map("api_keys")
-}
-
-model PublishedAgent {
-  id             String     @id @default(cuid())
-  agentId        String     @unique
-  sellerTenantId String
-  sellerUserId   String
-  title          String
-  description    String?
-  priceCredits   Int        @default(0)
-  status         String     @default("ACTIVE")
-  salesCount     Int        @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  agent          Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  purchases      Purchase[]
-  @@index([status, createdAt])
-  @@map("published_agents")
-}
-
-model Purchase {
-  id            String         @id @default(cuid())
-  publishedId   String
-  buyerTenantId String
-  buyerUserId   String
-  priceCredits  Int
-  cloneAgentId  String?
-  createdAt     DateTime       @default(now())
-  published     PublishedAgent @relation(fields: [publishedId], references: [id], onDelete: Cascade)
-  clonedAgent   Agent?         @relation(fields: [cloneAgentId], references: [id], onDelete: SetNull)
-  @@unique([publishedId, buyerTenantId])
-  @@index([buyerTenantId, createdAt])
-  @@map("purchases")
 }
