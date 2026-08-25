@@ -14,7 +14,8 @@ root.get("/", (c) =>
     name: "AI Agent Manager API",
     status: "ok",
     health: "/api/health",
-    docs: "UI is on GitHub Pages. Use /api/* endpoints.",
+    host: "render",
+    docs: "UI on GitHub Pages. Use /api/* endpoints.",
   })
 );
 

@@ -1,6 +1,6 @@
 /**
  * GitHub Pages — NO secrets
- * API on Render
+ * After Render deploy, set API_URL to https://YOUR.onrender.com/api
  */
 (function () {
   var stored = null;
@@ -10,7 +10,7 @@
   window.AAM_CONFIG = {
     API_URL:
       stored ||
-      "https://ai-agent-manager-platform.onrender.com/api",
+      "https://ai-agent-manager-api.onrender.com/api",
     APP_NAME: "AI Agent Manager",
     PAGES_BASE: "/ai-agent-manager-platform/",
   };
