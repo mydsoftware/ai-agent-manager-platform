@@ -11,6 +11,7 @@
     "dev": "tsx watch api/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:security": "vitest run tests/security-contract.test.ts tests/security-integration.test.ts tests/security-runtime.test.ts tests/billing.test.ts",
     "build": "prisma generate --schema prisma/schema.prisma && tsc --noEmit",
     "lint": "tsc --noEmit"
   },

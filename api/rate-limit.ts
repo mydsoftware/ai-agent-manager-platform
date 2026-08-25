@@ -17,6 +17,7 @@ export function rateLimit(key: string, limit = 60, windowMs = 60_000) {
 
 export function rateLimitKey(c: any, scope: string) {
   const auth = c.req.header('authorization') || ''
+  const apiKey = c.req.header('x-api-key') || ''
   const forwarded = c.req.header('x-forwarded-for') || ''
-  return `${scope}:${auth || forwarded || 'anonymous'}`
+  return `${scope}:${auth || apiKey || forwarded || 'anonymous'}`
 }

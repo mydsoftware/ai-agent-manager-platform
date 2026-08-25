@@ -1,7 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
-const adminEmail = (process.env.ADMIN_EMAIL || 'yusefimohammad@gmail.com').trim().toLowerCase()
+const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+
+if (!adminEmail) {
+  console.log('Admin bootstrap skipped: ADMIN_EMAIL is not set.')
+  process.exit(0)
+}
 
 try {
   const user = await prisma.user.findUnique({ where: { email: adminEmail } })
