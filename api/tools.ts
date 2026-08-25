@@ -1,6 +1,8 @@
 export type ToolContext = { tenantId: string; userId: string }
 export type ToolDefinition = { name: string; description: string; risk: 'LOW' | 'MEDIUM' | 'HIGH'; execute: (input: any, context: ToolContext) => Promise<any> }
 
+import { saveGeneratedPage, validateHtml, pageDb } from './pages'
+
 const tools = new Map<string, ToolDefinition>()
 
 export function registerTool(tool: ToolDefinition) { tools.set(tool.name, tool) }
@@ -35,6 +37,27 @@ registerTool({
     if (!response.ok) throw new Error(`SEARCH_PROVIDER_ERROR_${response.status}`)
     const data: any = await response.json()
     return { query, results: Array.isArray(data?.results) ? data.results.slice(0, 10) : data?.results || data }
+  }
+})
+
+registerTool({
+  name: 'save_page',
+  description: 'کد کامل HTML سایت را ذخیره می‌کند و لینک پیش‌نمایش عمومی برمی‌گرداند. حتماً لینک برگشتی را به کاربر اعلام کن.',
+  risk: 'LOW',
+  async execute(input, context) {
+    const result = await saveGeneratedPage(pageDb, context.tenantId, input)
+    return { ok: true, url: result.url, slug: result.page.slug, title: result.page.title, previewUrl: result.url, check: result.check }
+  }
+})
+
+registerTool({
+  name: 'html_validate',
+  description: 'کد HTML داده‌شده را از نظر ساختار (DOCTYPE، تگ‌های باز/بسته، title، viewport) اعتبارسنجی می‌کند و فهرست ایرادها را برمی‌گرداند.',
+  risk: 'LOW',
+  async execute(input) {
+    const html = String(input?.html || '')
+    if (!html.trim()) throw new Error('EMPTY_HTML')
+    return validateHtml(html)
   }
 })
 

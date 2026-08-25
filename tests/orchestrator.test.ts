@@ -91,7 +91,7 @@ describe('specialist seeds catalog', () => {
     for (const required of ['seo', 'webdev', 'wordpress', 'programming']) expect(ids).toContain(required)
   })
   it('every seed is complete and uses registered tool names only', () => {
-    const allowed = new Set(['json_echo', 'current_time', 'web_search'])
+    const allowed = new Set(['json_echo', 'current_time', 'web_search', 'save_page', 'html_validate'])
     for (const seed of SPECIALIST_SEEDS) {
       expect(seed.name.length).toBeGreaterThan(2)
       expect(seed.systemPrompt.length).toBeGreaterThan(40)

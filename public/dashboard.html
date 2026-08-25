@@ -39,6 +39,7 @@
       <button data-tab="overview"   class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">نمای کلی</button>
       <button data-tab="orchestrator" class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap bg-indigo-600/20 text-indigo-300 border border-indigo-700">مدیریت ایجنت ✦</button>
       <button data-tab="specialists"  class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">متخصص‌ها</button>
+      <button data-tab="pages"        class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">صفحات ساخته‌شده</button>
       <button data-tab="agents"       class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">ایجنت‌های من</button>
       <button data-tab="live"         class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">اجرای زنده</button>
       <button data-tab="billing"      class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">اعتبار و پرداخت</button>
@@ -88,6 +89,12 @@
     <section id="tab-specialists" class="tab-panel space-y-4 hidden">
       <div class="flex justify-between items-center"><h1 class="text-xl font-bold">متخصص‌ها</h1><button onclick="loadSpecialists()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
       <div id="specialists" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+
+    <!-- PAGES -->
+    <section id="tab-pages" class="tab-panel space-y-4 hidden">
+      <div class="flex justify-between items-center"><div><h1 class="text-xl font-bold">صفحات ساخته‌شده</h1><p class="text-xs text-slate-500">سایت‌هایی که ایجنت‌ها تولید کرده‌اند — لینک عمومی و قابل مشاهده</p></div><button onclick="loadPages()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
+      <div id="pagesList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
     </section>
 
     <!-- AGENTS -->
@@ -243,7 +250,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('bg-indigo-600/20','text-indigo-300','border','border-indigo-700'));
   $('tab-'+btn.dataset.tab).classList.remove('hidden');
   btn.classList.add('bg-indigo-600/20','text-indigo-300','border','border-indigo-700');
-  const loaders={overview:refreshOverview,specialists:loadSpecialists,agents:loadAgents,live:fillAgentSelects,billing:loadBilling,apikeys:loadKeys,tools:initTools};
+  const loaders={overview:refreshOverview,specialists:loadSpecialists,pages:loadPages,agents:loadAgents,live:fillAgentSelects,billing:loadBilling,apikeys:loadKeys,tools:initTools};
   loaders[btn.dataset.tab]?.();
 }));
 
@@ -273,6 +280,10 @@ async function runOrchestrator(){
   finally{$('orchBtn').disabled=false;loadSpecialists();}
 }
 function chip(label,value,color='slate'){return `<span class="px-3 py-1 rounded-full bg-${color}-900/60 text-${color}-300">${label}: ${esc(value)}</span>`}
+function pageLinks(text){
+  const slugs=[...new Set([...String(text||'').matchAll(/\/(?:api\/)?pages\/([a-z0-9]{6,32})/g)].map(m=>m[1]))];
+  return slugs.map(s=>`<a href="${API()}/pages/${esc(s)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs no-underline">🌐 مشاهده سایت</a>`).join(' ');
+}
 function handleOrchEvent(e){
   if(e.type==='status'){orchEvent('🔍 جستجوی متخصص مناسب...');return}
   if(e.type==='agent'){
@@ -284,11 +295,29 @@ function handleOrchEvent(e){
     const res=e.result||{};
     orchEvent(res.verdict?.pass?'✅ خروجی تأیید شد':'⛔ پس از '+res.cycles+' چرخه هنوز نقص دارد',res.verdict?.pass?'text-emerald-400':'text-amber-400');
     $('orchMeta').innerHTML=[chip('منبع',{FOUND:'کاتالوگ',CREATED:'ساخت خودکار',SEED:'پایه'}[res.source]||res.source,res.agent?.name||''),chip('چرخه‌ها',res.cycles),chip('توکن',res.tokensUsed||0)].join('');
+    const links=pageLinks(res.output);
+    if(links){$('orchMeta').innerHTML+=links;orchEvent('🌐 صفحه ساخته شد — لینک پیش‌نمایش آماده است','text-emerald-300')}
     $('orchOutput').textContent=res.output||'';$('orchOutput').classList.remove('hidden');
     show(res);
     if(res.agent?.id)selectAgentForRun(res.agent.id);
     return}
   if(e.type==='error'){orchEvent('خطا: '+e.error,'text-red-400')}
+}
+
+async function loadPages(){
+  if(!token())return;
+  try{
+    const d=await request('/pages');
+    $('pagesList').innerHTML=(d.pages||[]).length?d.pages.map(p=>`
+      <div class="bg-slate-800 rounded-xl p-4 space-y-2">
+        <div class="font-bold truncate">🌐 ${esc(p.title)}</div>
+        <div class="text-[11px] text-slate-500 mono">${esc(p.slug)}</div>
+        <div class="flex justify-between items-center">
+          <span class="text-xs text-slate-500">${new Date(p.createdAt).toLocaleDateString('fa-IR')}</span>
+          <a href="${API()}/pages/${esc(p.slug)}" target="_blank" rel="noopener" class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-xs no-underline">مشاهده</a>
+        </div>
+      </div>`).join(''):'<div class="text-slate-500 text-sm md:col-span-3">هنوز صفحه‌ای ساخته نشده. از مدیریت ایجنت یک سایت بخواهید.</div>';
+  }catch(e){show(e.message)}
 }
 
 /* ---------- specialists ---------- */
@@ -379,7 +408,7 @@ async function runStream(){
       if(e.type==='provider'){addRunEvent(`Provider: ${e.provider}/${e.model}`);return}
       if(e.type==='tool_start'){addRunEvent('شروع ابزار: '+e.name);return}
       if(e.type==='tool_result'){addRunEvent('نتیجه ابزار: '+e.name);return}
-      if(e.type==='done'){addRunEvent(`✅ تکمیل در مرحله ${e.iteration}`+(e.usage?` (${e.usage.inputTokens||0}+${e.usage.outputTokens||0} توکن)`:''),'text-emerald-400');return}
+      if(e.type==='done'){addRunEvent(`✅ تکمیل در مرحله ${e.iteration}`+(e.usage?` (${e.usage.inputTokens||0}+${e.usage.outputTokens||0} توکن)`:''),'text-emerald-400');const live=$('live');if(live.textContent.includes('/pages/')){live.innerHTML=esc(live.textContent).replace(/(\/(?:api\/)?pages\/[a-z0-9]{6,32})/g,'<a href="'+API()+'$1" target="_blank" class="text-emerald-300 underline">$1</a>')}return}
       if(e.type==='error'){addRunEvent('خطا: '+e.error,'text-red-400')}
     });
     $('runState').textContent='تکمیل شد';

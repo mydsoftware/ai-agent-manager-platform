@@ -2,6 +2,7 @@ import { prisma } from './runtime'
 import { executeAgentLoop } from './agent-loop'
 import { getLLMProvider } from './providers'
 import { listTools } from './tools'
+import { extractHtml, validateHtml } from './pages'
 
 export const MATCH_THRESHOLD = 0.34
 export const MAX_QUALITY_CYCLES = 3
@@ -24,7 +25,7 @@ export const SPECIALIST_SEEDS: SpecialistSeed[] = [
     systemPrompt:
       'تو یک متخصص سئو حرفه‌ای هستی. وظیفه‌ات تحلیل درخواست، پیشنهاد کلیدواژه‌های هدف، ساختار هدینگ‌ها، متا تایتل و دیسکریپشن و محتوای بهینه است. پاسخ‌ها عملی، مرحله‌به‌مرحله و بر اساس بهترین شیوه‌های سئوی سفیدپلبه باشد.',
     keywords: ['سئو', 'seo', 'گوگل', 'کلیدواژه', 'keyword', 'رتبه', 'بک‌لینک', 'ترافیک', 'محتوا'],
-    tools: ['json_echo', 'current_time', 'web_search'],
+    tools: ['json_echo', 'current_time', 'web_search', 'save_page'],
   },
   {
     specialty: 'webdev',
@@ -33,7 +34,7 @@ export const SPECIALIST_SEEDS: SpecialistSeed[] = [
     systemPrompt:
       'تو یک مهندس وب ارشد هستی. خروجی تو کد کامل، تمیز و بدون خطای وب‌سایت است (HTML/CSS/JS). همیشه کد را کامل بده، سازگاری موبایل/دسکتاپ، دسترس‌پذیری و عملکرد را رعایت کن و در پایان چک‌لیست صحت را بررسی کن.',
     keywords: ['سایت', 'وبسایت', 'وب', 'website', 'landing', 'صفحه', 'فرانت‌اند', 'html', 'css', 'طراحی سایت', 'سایت ساز'],
-    tools: ['json_echo', 'current_time', 'web_search'],
+    tools: ['json_echo', 'current_time', 'web_search', 'save_page', 'html_validate'],
   },
   {
     specialty: 'wordpress',
@@ -42,7 +43,7 @@ export const SPECIALIST_SEEDS: SpecialistSeed[] = [
     systemPrompt:
       'تو متخصص وردپرس هستی. برای هر درخواست راهکار استاندارد وردپرسی می‌دهی: انتخاب قالب، افزونه‌های لازم، کدهای functions.php، شورت‌کد یا بلوک، نکات امنیت و سرعت. خروجی دقیق و قابل اجرا باشد.',
     keywords: ['وردپرس', 'wordpress', 'ووکامرس', 'woocommerce', 'قالب', 'theme', 'افزونه', 'plugin', 'elementor'],
-    tools: ['json_echo', 'current_time', 'web_search'],
+    tools: ['json_echo', 'current_time', 'web_search', 'save_page', 'html_validate'],
   },
   {
     specialty: 'programming',
@@ -51,7 +52,7 @@ export const SPECIALIST_SEEDS: SpecialistSeed[] = [
     systemPrompt:
       'تو یک برنامه‌نویس ارشد هستی. مسئله را دقیق بفهم، راه‌حل را طرح ریزی کن، کد کامل و اجرایی بنویس، موارد لبه و خطاها را مدیریت کن و در پایان تست‌ها و نحوه اجرا را بده.',
     keywords: ['برنامه', 'کد', 'code', 'اسکریپت', 'باگ', 'bug', 'دیباگ', 'api', 'پایتون', 'python', 'جاوااسکریپت', 'javascript', 'node'],
-    tools: ['json_echo', 'current_time', 'web_search'],
+    tools: ['json_echo', 'current_time', 'web_search', 'html_validate'],
   },
 ]
 
@@ -185,7 +186,13 @@ export async function ensureSpecialistSeeds(tenantId: string): Promise<void> {
   })
   const have = new Set(existing.map((e) => e.specialty))
   for (const seed of SPECIALIST_SEEDS) {
-    if (have.has(seed.specialty)) continue
+    if (have.has(seed.specialty)) {
+      await prisma.agent.updateMany({
+        where: { tenantId, origin: 'SEED', specialty: seed.specialty },
+        data: { description: seed.description, systemPrompt: seed.systemPrompt, keywords: seed.keywords as any, tools: seed.tools as any },
+      })
+      continue
+    }
     const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
     await prisma.$executeRaw`
       INSERT INTO agents (id, "tenantId", name, slug, description, "systemPrompt", tools, permissions, "riskLevel", "approvalPolicy", specialty, keywords, origin, "isActive", "createdAt", "updatedAt")
@@ -281,8 +288,19 @@ export async function orchestrate(options: OrchestrateOptions, emit?: (event: Or
     lastOutput = result.text
     report({ type: 'verifying', cycle })
     lastVerdict = await verifyOutput(requirement, lastOutput)
-    if (lastVerdict.pass) break
-    if (cycle < maxCycles) report({ type: 'retry', cycle, issues: lastVerdict.issues })
+    const issues = [...lastVerdict.issues]
+    let pass = lastVerdict.pass
+    const htmlBlock = extractHtml(lastOutput)
+    if (htmlBlock) {
+      const check = validateHtml(htmlBlock)
+      if (!check.valid) {
+        pass = false
+        issues.push(...check.issues.map((i) => 'HTML: ' + i))
+      }
+    }
+    lastVerdict = { pass, issues }
+    if (pass) break
+    if (cycle < maxCycles) report({ type: 'retry', cycle, issues })
   }
 
   const finalResult: OrchestrationResult = {

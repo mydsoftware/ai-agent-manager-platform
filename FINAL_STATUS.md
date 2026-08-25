@@ -26,7 +26,11 @@
   - Vercel → `outputDirectory: public` + rewrite به API
   - سرور اختصاصی/self-host → سرور Node استاتیک را هم از همان دامنه سرو می‌کند (`api/server.ts`)
   - آدرس API از داخل داشبورد (تب تنظیمات) قابل تغییر است بدون دیپلوی مجدد
-- Tests: ۲۹ تست واحد (orchestrator, billing, credits, security) — همه سبز
+- ابزارهای واقعی سایت‌سازی: `save_page` (ذخیره HTML + لینک پیش‌نمایش عمومی `/api/pages/:slug`) و `html_validate` (اعتبارسنجی عینی ساختار)
+- لوپ کیفیت ترکیبی: قضاوت LLM + اعتبارسنجی عینی HTML — نقص‌های ساختاری هم به چرخه بعد بازمی‌گردند
+- تب «صفحات ساخته‌شده» در داشبورد + دکمه «مشاهده سایت» در نتایج مدیریت ایجنت و اجرای زنده
+- seed متخصص‌ها اکنون با هر دیپلوی به‌روزرسانی می‌شوند (پرامپت/ابزارهای تازه بدون ریست حساب)
+- Tests: ۳۹ تست واحد (orchestrator, pages/html, billing, credits, security) — همه سبز
 - Tests: unit tests برای billing/credits + security tests؛ اسکریپت `test:security` اضافه شد (CI سبز)
 
 ## باقی‌مانده برای درآمد واقعی

@@ -10,6 +10,7 @@ import { getUsage } from './usage'
 import { generateApiKey, findApiKey } from './keys'
 import { createCheckout } from './billing'
 import { orchestrate, ensureSpecialistSeeds, SPECIALIST_SEEDS } from './orchestrator'
+import { getPageBySlug, listTenantPages, pageDb } from './pages'
 import { resolveApproval } from './approvals'
 import { searchMemory } from './memory-api'
 import { retrieveMemory, saveMemory } from './rag'
@@ -219,6 +220,29 @@ app.post('/orchestrator/request/stream', async (c) => {
   } catch (e: any) {
     const code = e?.message === 'UNAUTHORIZED' ? 401 : 400
     return c.json({ error: e?.message || 'ORCHESTRATION_FAILED' }, code)
+  }
+})
+app.get('/pages/:slug', async (c) => {
+  try {
+    const rl = limited(c, 'page-view', 120)
+    if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
+    const page = await getPageBySlug(pageDb, c.req.param('slug'))
+    if (!page) return c.json({ error: 'PAGE_NOT_FOUND' }, 404)
+    return c.html(page.html)
+  } catch (e: any) {
+    return c.json({ error: e?.message || 'PAGE_FAILED' }, 400)
+  }
+})
+app.get('/pages', async (c) => {
+  try {
+    const rl = limited(c, 'pages-list', 60)
+    if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429)
+    const { tenant } = await requireUser(c)
+    if (!tenant) return c.json({ pages: [] })
+    return c.json({ pages: await listTenantPages(pageDb, tenant.id, Number(c.req.query('take'))) })
+  } catch (e: any) {
+    const code = e?.message === 'UNAUTHORIZED' ? 401 : 400
+    return c.json({ error: e?.message || 'PAGES_FAILED' }, code)
   }
 })
 app.onError((err, c) => { console.error(err); return c.json({ error: 'INTERNAL_ERROR' }) })

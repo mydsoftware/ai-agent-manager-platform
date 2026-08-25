@@ -146,3 +146,15 @@ model ApiKey {
   @@index([tenantId, createdAt])
   @@map("api_keys")
 }
+
+model GeneratedPage {
+  id        String   @id @default(cuid())
+  tenantId  String
+  slug      String   @unique
+  title     String
+  html      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId, createdAt])
+  @@map("generated_pages")
+}
