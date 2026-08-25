@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — AI Agent Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>body{font-family:Vazirmatn,sans-serif}</style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-4 md:p-6">
+  <div class="max-w-4xl mx-auto space-y-4">
+    <div class="flex flex-wrap justify-between items-center gap-2">
+      <h1 class="text-2xl font-bold">داشبورد</h1>
+      <a href="index.html" class="text-indigo-400 text-sm">خانه</a>
+    </div>
+    <p class="text-slate-400 text-sm">GitHub Pages → API خارجی</p>
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+      <label class="text-xs text-slate-400">API_URL</label>
+      <div class="flex gap-2 flex-wrap">
+        <input id="apiUrl" class="flex-1 min-w-[200px] bg-slate-800 rounded-lg px-3 py-2 text-sm" />
+        <button onclick="saveApi()" class="bg-slate-700 px-3 py-2 rounded-lg text-sm">ذخیره</button>
+      </div>
+    </div>
+    <div id="health" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-300">...</div>
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 max-w-md space-y-3">
+      <h2 class="font-semibold">ورود / ثبت‌نام</h2>
+      <input id="email" type="email" placeholder="ایمیل" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+      <input id="password" type="password" placeholder="رمز (حداقل ۶)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+      <input id="name" type="text" placeholder="نام (اختیاری)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
+      <div class="flex gap-2">
+        <button onclick="register()" class="bg-indigo-600 px-4 py-2 rounded-lg">ثبت‌نام</button>
+        <button onclick="login()" class="border border-slate-600 px-4 py-2 rounded-lg">ورود</button>
+        <button onclick="me()" class="border border-slate-600 px-4 py-2 rounded-lg">من کیستم</button>
+      </div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+      <h2 class="font-semibold">ایجنت‌ها</h2>
+      <div class="flex gap-2 flex-wrap">
+        <input id="agentName" placeholder="نام ایجنت" class="bg-slate-800 rounded-lg px-3 py-2 text-sm" />
+        <button onclick="createAgent()" class="bg-emerald-600 px-4 py-2 rounded-lg text-sm">ساخت</button>
+        <button onclick="listAgents()" class="border border-slate-600 px-4 py-2 rounded-lg text-sm">لیست</button>
+      </div>
+      <div id="agents" class="text-sm text-slate-300"></div>
+    </div>
+    <pre id="out" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs overflow-auto min-h-[80px]"></pre>
+  </div>
+  <script src="config.js"></script>
+  <script>
+    function apiBase() { return (localStorage.getItem('API_URL') || window.AAM_CONFIG.API_URL).replace(/\/$/, ''); }
+    function token() { return localStorage.getItem('token') || ''; }
+    function authHeaders() { const h = { 'Content-Type': 'application/json' }; if (token()) h['Authorization'] = 'Bearer ' + token(); return h; }
+    function show(x) { document.getElementById('out').textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2); }
+    function saveApi() { const v = document.getElementById('apiUrl').value.trim(); if (v) localStorage.setItem('API_URL', v); ping(); }
+    async function ping() {
+      const el = document.getElementById('health');
+      el.textContent = 'checking ' + apiBase() + ' ...';
+      try { const r = await fetch(apiBase() + '/health'); el.textContent = JSON.stringify(await r.json()); }
+      catch (e) { el.textContent = 'API offline: ' + e.message; }
+    }
+    async function register() {
+      const body = { email: email.value, password: password.value, name: name.value || undefined };
+      const r = await fetch(apiBase() + '/auth/register', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const j = await r.json(); if (j.token) localStorage.setItem('token', j.token); show(j);
+    }
+    async function login() {
+      const body = { email: email.value, password: password.value };
+      const r = await fetch(apiBase() + '/auth/login', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const j = await r.json(); if (j.token) localStorage.setItem('token', j.token); show(j);
+    }
+    async function me() { const r = await fetch(apiBase() + '/auth/me', { headers: authHeaders() }); show(await r.json()); }
+    async function createAgent() {
+      const name = agentName.value.trim(); if (!name) return show('نام لازم است');
+      const r = await fetch(apiBase() + '/agents', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ name, tools: ['web_search'], systemPrompt: 'You are a helpful agent.' }) });
+      show(await r.json()); listAgents();
+    }
+    async function listAgents() {
+      const r = await fetch(apiBase() + '/agents', { headers: authHeaders() });
+      const j = await r.json(); const list = j.agents || [];
+      document.getElementById('agents').innerHTML = list.length
+        ? list.map(a => '<div class="border border-slate-700 rounded-lg p-2 mb-1 flex justify-between gap-2"><span>' + a.name + '</span><button class="text-indigo-400 text-xs" onclick="runAgent(\'' + a.id + '\')">اجرا</button></div>').join('')
+        : '<span class="text-slate-500">ایجنتی نیست</span>';
+      show(j);
+    }
+    async function runAgent(id) {
+      const r = await fetch(apiBase() + '/agents/' + id + '/run', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ input: { message: 'سلام' }, maxIterations: 3 }) });
+      show(await r.json());
+    }
+    document.getElementById('apiUrl').value = apiBase();
+    ping();
+  </script>
+</body>
+</html>
