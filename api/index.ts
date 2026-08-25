@@ -26,13 +26,59 @@ function limited(c: any, scope: string, limit = 60) { return rateLimit(rateLimit
 const configuredOrigins = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean)
 const defaultOrigins = ['https://mydsoftware.github.io','http://localhost:3000','http://127.0.0.1:3000']
 app.use('*', cors({ origin: (origin) => { if (!origin) return '*'; if (configuredOrigins.includes('*')) return origin; if (configuredOrigins.includes(origin)) return origin; if (defaultOrigins.includes(origin)) return origin; if (origin.endsWith('.github.io')) return origin; if (origin.endsWith('.onrender.com')) return origin; return configuredOrigins[0] || origin }, credentials: true }))
-app.get('/', (c) => c.json({ name: 'AI Agent Manager API', version: '0.8.1', status: 'ok', host: 'render' }))
+app.get('/', (c) => c.json({ name: 'AI Agent Manager API', version: '0.8.2', status: 'ok', host: 'render' }))
 app.get('/health', async (c) => { const prisma = db(); if (!prisma) return c.json({ status: 'ok', database: 'not_configured' }); try { await prisma.$queryRaw`SELECT 1`; return c.json({ status: 'ok', database: 'connected', time: new Date().toISOString() }) } catch (e: any) { return c.json({ status: 'degraded', database: 'error', error: e?.message || 'db_error' }, 503) } })
 app.post('/auth/register', async (c) => { const rl = limited(c, 'register', 10); if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429); const prisma = db(); if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503); let body: any; try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }; const email = String(body.email || '').trim().toLowerCase(), password = String(body.password || ''), name = body.name ? String(body.name).trim().slice(0, 120) : null; if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 6 || password.length > 128) return c.json({ error: 'INVALID_INPUT' }, 400); try { if (await prisma.user.findUnique({ where: { email } })) return c.json({ error: 'EMAIL_ALREADY_EXISTS' }, 409); const passwordHash = await bcrypt.hash(password, 12); const role = email === 'yusefimohammad@gmail.com' ? 'ADMIN' : 'USER'; const user = await prisma.user.create({ data: { email, passwordHash, name, role, tenants: { create: { name: name || email.split('@')[0], slug: `t-${Date.now().toString(36)}`, plan: 'FREE', credits: 100 } } }, include: { tenants: true } }); const token = await signToken({ sub: user.id, email }); const tenant = user.tenants[0]; return c.json({ token, user: { id: user.id, email, name: user.name, role: user.role }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null }) } catch (e) { console.error(e); return c.json({ error: 'REGISTER_FAILED' }, 500) } })
 app.post('/auth/login', async (c) => { const rl = limited(c, 'login', 20); if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429); const prisma = db(); if (!prisma) return c.json({ error: 'DATABASE_NOT_CONFIGURED' }, 503); let body: any; try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }; const email = String(body.email || '').trim().toLowerCase(), password = String(body.password || ''); try { const user = await prisma.user.findUnique({ where: { email }, include: { tenants: true } }); if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) return c.json({ error: 'INVALID_CREDENTIALS' }, 401); const token = await signToken({ sub: user.id, email }); const tenant = user.tenants[0]; return c.json({ token, user: { id: user.id, email, name: user.name, role: user.role }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null }) } catch (e) { console.error(e); return c.json({ error: 'LOGIN_FAILED' }, 500) } })
 app.get('/auth/me', async (c) => { try { const { user, tenant } = await requireUser(c); return c.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, isAdmin: user.role === 'ADMIN' }, tenant: tenant ? { id: tenant.id, name: tenant.name, credits: tenant.credits, plan: tenant.plan } : null }) } catch (e: any) { return c.json({ error: e?.message === 'UNAUTHORIZED' ? 'UNAUTHORIZED' : 'AUTH_FAILED' }, 401) } })
-app.post('/agents', async (c) => { try { const { prisma, tenant } = await requireUser(c); if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404); let body: any; try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }; const name = String(body.name || '').trim(); if (!name) return c.json({ error: 'INVALID_INPUT', message: 'name required' }, 400); let slug = String(body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')); if (!slug || slug === '-') slug = 'agent-' + Date.now().toString(36); slug = slug.slice(0, 48); const agent = await prisma.agent.create({ data: { tenantId: tenant.id, name, slug, description: body.description ? String(body.description) : null, systemPrompt: body.systemPrompt ? String(body.systemPrompt) : null, tools: Array.isArray(body.tools) ? body.tools.map(String) : [], permissions: Array.isArray(body.permissions) ? body.permissions.map(String) : [], riskLevel: body.riskLevel ? String(body.riskLevel) : 'LOW', approvalPolicy: body.approvalPolicy ? String(body.approvalPolicy) : 'AUTO' } }); return c.json({ agent }, 201) } catch (e: any) { return c.json({ error: e?.message || 'AGENT_CREATE_FAILED' }, 400) } })
-app.get('/agents', async (c) => { try { const { prisma, tenant } = await requireUser(c); if (!tenant) return c.json({ agents: [] }); return c.json({ agents: await prisma.agent.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: 'desc' } }) }) } catch (e: any) { return c.json({ error: e?.message || 'AGENT_LIST_FAILED' }, 401) } })
+app.post('/agents', async (c) => {
+  try {
+    const { prisma, tenant } = await requireUser(c)
+    if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404)
+    let body: any
+    try { body = await c.req.json() } catch { return c.json({ error: 'INVALID_JSON' }, 400) }
+    const name = String(body.name || '').trim()
+    if (!name) return c.json({ error: 'INVALID_INPUT', message: 'name required' }, 400)
+    let slug = String(body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
+    if (!slug || slug === '-') slug = 'agent-' + Date.now().toString(36)
+    slug = slug.slice(0, 48)
+    const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+    // Use raw SQL to avoid Prisma String[] vs JSONB mismatch on tools/permissions
+    await prisma.$executeRaw`
+      INSERT INTO agents (id, "tenantId", name, slug, description, "systemPrompt", tools, permissions, "riskLevel", "approvalPolicy", "isActive", "createdAt", "updatedAt")
+      VALUES (
+        ${id},
+        ${tenant.id},
+        ${name},
+        ${slug},
+        ${body.description ? String(body.description) : null},
+        ${body.systemPrompt ? String(body.systemPrompt) : null},
+        ${JSON.stringify(Array.isArray(body.tools) ? body.tools.map(String) : ['web_search'])}::jsonb,
+        ${JSON.stringify(Array.isArray(body.permissions) ? body.permissions.map(String) : [])}::jsonb,
+        ${body.riskLevel ? String(body.riskLevel) : 'LOW'},
+        ${body.approvalPolicy ? String(body.approvalPolicy) : 'AUTO'},
+        true,
+        NOW(),
+        NOW()
+      )
+    `
+    const rows = await prisma.$queryRaw`SELECT * FROM agents WHERE id = ${id} LIMIT 1` as any[]
+    return c.json({ agent: rows[0] || { id, name, slug, tenantId: tenant.id } }, 201)
+  } catch (e: any) {
+    console.error(e)
+    return c.json({ error: e?.message || 'AGENT_CREATE_FAILED' }, 400)
+  }
+})
+app.get('/agents', async (c) => {
+  try {
+    const { prisma, tenant } = await requireUser(c)
+    if (!tenant) return c.json({ agents: [] })
+    const agents = await prisma.$queryRaw`SELECT * FROM agents WHERE "tenantId" = ${tenant.id} ORDER BY "createdAt" DESC` as any[]
+    return c.json({ agents: agents || [] })
+  } catch (e: any) {
+    return c.json({ error: e?.message || 'AGENT_LIST_FAILED' }, 401)
+  }
+})
 app.post('/agents/:id/run', async (c) => { try { const { tenant, user } = await requireUser(c); if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404); let body: any = {}; try { body = await c.req.json() } catch {} const run = await runAgent({ agentId: c.req.param('id'), tenantId: tenant.id, userId: user.id, input: body.input ?? {}, maxIterations: body.maxIterations }); return c.json({ run }) } catch (e: any) { const code = e?.message === 'UNAUTHORIZED' ? 401 : e?.message === 'AGENT_NOT_FOUND' ? 404 : e?.message === 'INSUFFICIENT_CREDITS' ? 402 : 400; return c.json({ error: e?.message || 'AGENT_RUN_FAILED' }, code) } })
 app.post('/agents/:id/stream', async (c) => { try { const rl = limited(c, `stream:${c.req.param('id')}`, 10); if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429); const { prisma, tenant, user } = await requireUser(c); if (!tenant) return c.json({ error: 'TENANT_NOT_FOUND' }, 404); let body: any = {}; try { body = await c.req.json() } catch {} const agent = await prisma.agent.findFirst({ where: { id: c.req.param('id'), tenantId: tenant.id } }); if (!agent) return c.json({ error: 'AGENT_NOT_FOUND' }, 404); const encoder = new TextEncoder(); const stream = new ReadableStream({ async start(controller) { const send = (event: any) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)); try { await streamAgent({ agent, tenantId: tenant.id, userId: user.id, input: body.input ?? {}, maxIterations: body.maxIterations, memoryLimit: body.memoryLimit }, send); } catch (e: any) { send({ type: 'error', error: e?.message || 'AGENT_STREAM_FAILED' }); } finally { controller.close(); } } }); return new Response(stream, { headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' } }); } catch (e: any) { const code = e?.message === 'UNAUTHORIZED' ? 401 : 400; return c.json({ error: e?.message || 'AGENT_STREAM_FAILED' }, code) } })
 app.get('/agents/:id/runs', async (c) => { try { const rl = limited(c, `runs:${c.req.param('id')}`, 60); if (!rl.allowed) return c.json({ error: 'RATE_LIMITED', retryAfter: rl.retryAfter }, 429); const { prisma, tenant } = await requireUser(c); if (!tenant) return c.json({ runs: [] }); const agent = await prisma.agent.findFirst({ where: { id: c.req.param('id'), tenantId: tenant.id }, select: { id: true } }); if (!agent) return c.json({ error: 'AGENT_NOT_FOUND' }, 404); return c.json({ runs: await prisma.agentRun.findMany({ where: { tenantId: tenant.id, agentId: agent.id }, orderBy: { createdAt: 'desc' }, take: 50 }) }) } catch (e: any) { return c.json({ error: e?.message || 'RUN_LIST_FAILED' }, 401) } })
