@@ -14,78 +14,213 @@
       <h1 class="text-2xl font-bold">داشبورد</h1>
       <a href="index.html" class="text-indigo-400 text-sm">خانه</a>
     </div>
-    <p class="text-slate-400 text-sm">GitHub Pages → API خارجی</p>
+    <p class="text-slate-400 text-sm">GitHub Pages → Render API</p>
+
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
       <label class="text-xs text-slate-400">API_URL</label>
       <div class="flex gap-2 flex-wrap">
         <input id="apiUrl" class="flex-1 min-w-[200px] bg-slate-800 rounded-lg px-3 py-2 text-sm" />
-        <button onclick="saveApi()" class="bg-slate-700 px-3 py-2 rounded-lg text-sm">ذخیره</button>
+        <button type="button" id="btnSaveApi" class="bg-slate-700 px-3 py-2 rounded-lg text-sm">ذخیره</button>
+        <button type="button" id="btnPing" class="bg-indigo-700 px-3 py-2 rounded-lg text-sm">تست اتصال</button>
       </div>
+      <p class="text-xs text-slate-500">اگر Render خواب باشد، اولین تست ممکن است ۳۰–۶۰ ثانیه طول بکشد.</p>
     </div>
+
     <div id="health" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-300">...</div>
+
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 max-w-md space-y-3">
       <h2 class="font-semibold">ورود / ثبت‌نام</h2>
       <input id="email" type="email" placeholder="ایمیل" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
       <input id="password" type="password" placeholder="رمز (حداقل ۶)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
       <input id="name" type="text" placeholder="نام (اختیاری)" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
-      <div class="flex gap-2">
-        <button onclick="register()" class="bg-indigo-600 px-4 py-2 rounded-lg">ثبت‌نام</button>
-        <button onclick="login()" class="border border-slate-600 px-4 py-2 rounded-lg">ورود</button>
-        <button onclick="me()" class="border border-slate-600 px-4 py-2 rounded-lg">من کیستم</button>
+      <div class="flex gap-2 flex-wrap">
+        <button type="button" id="btnRegister" class="bg-indigo-600 px-4 py-2 rounded-lg">ثبت‌نام</button>
+        <button type="button" id="btnLogin" class="border border-slate-600 px-4 py-2 rounded-lg">ورود</button>
+        <button type="button" id="btnMe" class="border border-slate-600 px-4 py-2 rounded-lg">من کیستم</button>
       </div>
     </div>
+
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
       <h2 class="font-semibold">ایجنت‌ها</h2>
       <div class="flex gap-2 flex-wrap">
         <input id="agentName" placeholder="نام ایجنت" class="bg-slate-800 rounded-lg px-3 py-2 text-sm" />
-        <button onclick="createAgent()" class="bg-emerald-600 px-4 py-2 rounded-lg text-sm">ساخت</button>
-        <button onclick="listAgents()" class="border border-slate-600 px-4 py-2 rounded-lg text-sm">لیست</button>
+        <button type="button" id="btnCreateAgent" class="bg-emerald-600 px-4 py-2 rounded-lg text-sm">ساخت</button>
+        <button type="button" id="btnListAgents" class="border border-slate-600 px-4 py-2 rounded-lg text-sm">لیست</button>
       </div>
       <div id="agents" class="text-sm text-slate-300"></div>
     </div>
+
     <pre id="out" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs overflow-auto min-h-[80px]"></pre>
   </div>
+
   <script src="config.js"></script>
   <script>
-    function apiBase() { return (localStorage.getItem('API_URL') || window.AAM_CONFIG.API_URL).replace(/\/$/, ''); }
-    function token() { return localStorage.getItem('token') || ''; }
-    function authHeaders() { const h = { 'Content-Type': 'application/json' }; if (token()) h['Authorization'] = 'Bearer ' + token(); return h; }
-    function show(x) { document.getElementById('out').textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2); }
-    function saveApi() { const v = document.getElementById('apiUrl').value.trim(); if (v) localStorage.setItem('API_URL', v); ping(); }
+    var DEFAULT_API = 'https://ai-agent-manager-platform.onrender.com/api';
+
+    function apiBase() {
+      var fromLs = null;
+      try { fromLs = localStorage.getItem('API_URL'); } catch (e) {}
+      if (fromLs && fromLs.indexOf('vercel.app') !== -1) {
+        try { localStorage.removeItem('API_URL'); } catch (e) {}
+        fromLs = null;
+      }
+      var fromCfg = (window.AAM_CONFIG && window.AAM_CONFIG.API_URL) || DEFAULT_API;
+      return String(fromLs || fromCfg || DEFAULT_API).replace(/\/$/, '');
+    }
+
+    function token() {
+      try { return localStorage.getItem('token') || ''; } catch (e) { return ''; }
+    }
+
+    function authHeaders() {
+      var h = { 'Content-Type': 'application/json' };
+      var t = token();
+      if (t) h['Authorization'] = 'Bearer ' + t;
+      return h;
+    }
+
+    function show(x) {
+      document.getElementById('out').textContent =
+        typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+    }
+
+    function val(id) {
+      var el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    async function fetchJson(path, opts) {
+      opts = opts || {};
+      opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
+      opts.mode = 'cors';
+      var url = apiBase() + path;
+      var r = await fetch(url, opts);
+      var text = await r.text();
+      try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
+      catch (e) { return { ok: r.ok, status: r.status, data: { raw: text } }; }
+    }
+
     async function ping() {
-      const el = document.getElementById('health');
-      el.textContent = 'checking ' + apiBase() + ' ...';
-      try { const r = await fetch(apiBase() + '/health'); el.textContent = JSON.stringify(await r.json()); }
-      catch (e) { el.textContent = 'API offline: ' + e.message; }
+      var el = document.getElementById('health');
+      var base = apiBase();
+      el.textContent = 'در حال اتصال به ' + base + ' (اگر خواب باشد تا ۶۰ث صبر کن) ...';
+      var controller = new AbortController();
+      var timer = setTimeout(function () { controller.abort(); }, 90000);
+      try {
+        var r = await fetch(base + '/health', { mode: 'cors', signal: controller.signal });
+        clearTimeout(timer);
+        var j = await r.json();
+        el.textContent = JSON.stringify(j);
+        show({ health: j, api: base });
+      } catch (e) {
+        clearTimeout(timer);
+        el.textContent = 'API offline: ' + e.message +
+          '\nURL: ' + base +
+          '\nاگر Render Free است، یک‌بار لینک زیر را در تب جدید باز کن تا بیدار شود:\n' +
+          base + '/health';
+        show({ error: e.message, api: base });
+      }
     }
+
     async function register() {
-      const body = { email: email.value, password: password.value, name: name.value || undefined };
-      const r = await fetch(apiBase() + '/auth/register', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
-      const j = await r.json(); if (j.token) localStorage.setItem('token', j.token); show(j);
+      try {
+        var res = await fetchJson('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: val('email').trim(),
+            password: val('password'),
+            name: val('name').trim() || undefined
+          })
+        });
+        if (res.data && res.data.token) {
+          try { localStorage.setItem('token', res.data.token); } catch (e) {}
+        }
+        show(res.data);
+      } catch (e) { show('register error: ' + e.message); }
     }
+
     async function login() {
-      const body = { email: email.value, password: password.value };
-      const r = await fetch(apiBase() + '/auth/login', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
-      const j = await r.json(); if (j.token) localStorage.setItem('token', j.token); show(j);
+      try {
+        var res = await fetchJson('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: val('email').trim(),
+            password: val('password')
+          })
+        });
+        if (res.data && res.data.token) {
+          try { localStorage.setItem('token', res.data.token); } catch (e) {}
+        }
+        show(res.data);
+      } catch (e) { show('login error: ' + e.message); }
     }
-    async function me() { const r = await fetch(apiBase() + '/auth/me', { headers: authHeaders() }); show(await r.json()); }
+
+    async function me() {
+      try {
+        var res = await fetchJson('/auth/me');
+        show(res.data);
+      } catch (e) { show('me error: ' + e.message); }
+    }
+
     async function createAgent() {
-      const name = agentName.value.trim(); if (!name) return show('نام لازم است');
-      const r = await fetch(apiBase() + '/agents', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ name, tools: ['web_search'], systemPrompt: 'You are a helpful agent.' }) });
-      show(await r.json()); listAgents();
+      var name = val('agentName').trim();
+      if (!name) return show('نام لازم است');
+      try {
+        var res = await fetchJson('/agents', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: name,
+            tools: ['web_search'],
+            systemPrompt: 'You are a helpful agent.'
+          })
+        });
+        show(res.data);
+        listAgents();
+      } catch (e) { show('createAgent error: ' + e.message); }
     }
+
     async function listAgents() {
-      const r = await fetch(apiBase() + '/agents', { headers: authHeaders() });
-      const j = await r.json(); const list = j.agents || [];
-      document.getElementById('agents').innerHTML = list.length
-        ? list.map(a => '<div class="border border-slate-700 rounded-lg p-2 mb-1 flex justify-between gap-2"><span>' + a.name + '</span><button class="text-indigo-400 text-xs" onclick="runAgent(\'' + a.id + '\')">اجرا</button></div>').join('')
-        : '<span class="text-slate-500">ایجنتی نیست</span>';
-      show(j);
+      try {
+        var res = await fetchJson('/agents');
+        var list = (res.data && res.data.agents) || [];
+        document.getElementById('agents').innerHTML = list.length
+          ? list.map(function (a) {
+              return '<div class="border border-slate-700 rounded-lg p-2 mb-1 flex justify-between gap-2">' +
+                '<span>' + (a.name || '') + '</span>' +
+                '<button type="button" class="text-indigo-400 text-xs" data-run="' + a.id + '">اجرا</button></div>';
+            }).join('')
+          : '<span class="text-slate-500">ایجنتی نیست</span>';
+        show(res.data);
+        document.querySelectorAll('[data-run]').forEach(function (btn) {
+          btn.onclick = function () { runAgent(btn.getAttribute('data-run')); };
+        });
+      } catch (e) { show('listAgents error: ' + e.message); }
     }
+
     async function runAgent(id) {
-      const r = await fetch(apiBase() + '/agents/' + id + '/run', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ input: { message: 'سلام' }, maxIterations: 3 }) });
-      show(await r.json());
+      try {
+        var res = await fetchJson('/agents/' + id + '/run', {
+          method: 'POST',
+          body: JSON.stringify({ input: { message: 'سلام' }, maxIterations: 3 })
+        });
+        show(res.data);
+      } catch (e) { show('runAgent error: ' + e.message); }
     }
+
+    document.getElementById('btnSaveApi').onclick = function () {
+      var v = val('apiUrl').trim();
+      if (v) {
+        try { localStorage.setItem('API_URL', v); } catch (e) {}
+      }
+      ping();
+    };
+    document.getElementById('btnPing').onclick = ping;
+    document.getElementById('btnRegister').onclick = register;
+    document.getElementById('btnLogin').onclick = login;
+    document.getElementById('btnMe').onclick = me;
+    document.getElementById('btnCreateAgent').onclick = createAgent;
+    document.getElementById('btnListAgents').onclick = listAgents;
+
     document.getElementById('apiUrl').value = apiBase();
     ping();
   </script>
