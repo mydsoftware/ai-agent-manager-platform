@@ -23,7 +23,6 @@
         <button type="button" id="btnSaveApi" class="bg-slate-700 px-3 py-2 rounded-lg text-sm">ذخیره</button>
         <button type="button" id="btnPing" class="bg-indigo-700 px-3 py-2 rounded-lg text-sm">تست اتصال</button>
       </div>
-      <p class="text-xs text-slate-500">اگر Render خواب باشد، اولین تست ممکن است ۳۰–۶۰ ثانیه طول بکشد.</p>
     </div>
 
     <div id="health" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-300">...</div>
@@ -43,19 +42,23 @@
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
       <h2 class="font-semibold">ایجنت‌ها</h2>
       <div class="flex gap-2 flex-wrap">
-        <input id="agentName" placeholder="نام ایجنت" class="bg-slate-800 rounded-lg px-3 py-2 text-sm" />
+        <input id="agentName" placeholder="مثلا My Assistant" class="bg-slate-800 rounded-lg px-3 py-2 text-sm" />
         <button type="button" id="btnCreateAgent" class="bg-emerald-600 px-4 py-2 rounded-lg text-sm">ساخت</button>
         <button type="button" id="btnListAgents" class="border border-slate-600 px-4 py-2 rounded-lg text-sm">لیست</button>
       </div>
       <div id="agents" class="text-sm text-slate-300"></div>
     </div>
 
-    <pre id="out" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs overflow-auto min-h-[80px]"></pre>
+    <div class="bg-amber-950/40 border border-amber-800/50 rounded-xl p-3 text-xs text-amber-200">
+      خطاها اینجا می‌مانند تا کپی کنی. اگر چیزی ندیدی، F12 → Network را باز کن.
+    </div>
+    <pre id="out" class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs overflow-auto min-h-[120px] whitespace-pre-wrap"></pre>
   </div>
 
   <script src="config.js"></script>
   <script>
     var DEFAULT_API = 'https://ai-agent-manager-platform.onrender.com/api';
+    var lastError = null;
 
     function apiBase() {
       var fromLs = null;
@@ -80,8 +83,19 @@
     }
 
     function show(x) {
-      document.getElementById('out').textContent =
-        typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+      var text = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+      document.getElementById('out').textContent = text;
+      try { console.log('[AAM]', x); } catch (e) {}
+    }
+
+    function showError(where, e, extra) {
+      lastError = {
+        where: where,
+        message: (e && e.message) ? e.message : String(e),
+        extra: extra || null,
+        time: new Date().toISOString()
+      };
+      show(lastError);
     }
 
     function val(id) {
@@ -96,29 +110,23 @@
       var url = apiBase() + path;
       var r = await fetch(url, opts);
       var text = await r.text();
-      try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
-      catch (e) { return { ok: r.ok, status: r.status, data: { raw: text } }; }
+      var data;
+      try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
+      return { ok: r.ok, status: r.status, data: data, url: url };
     }
 
     async function ping() {
       var el = document.getElementById('health');
       var base = apiBase();
-      el.textContent = 'در حال اتصال به ' + base + ' (اگر خواب باشد تا ۶۰ث صبر کن) ...';
-      var controller = new AbortController();
-      var timer = setTimeout(function () { controller.abort(); }, 90000);
+      el.textContent = 'checking ' + base + ' ...';
       try {
-        var r = await fetch(base + '/health', { mode: 'cors', signal: controller.signal });
-        clearTimeout(timer);
+        var r = await fetch(base + '/health', { mode: 'cors' });
         var j = await r.json();
         el.textContent = JSON.stringify(j);
         show({ health: j, api: base });
       } catch (e) {
-        clearTimeout(timer);
-        el.textContent = 'API offline: ' + e.message +
-          '\nURL: ' + base +
-          '\nاگر Render Free است، یک‌بار لینک زیر را در تب جدید باز کن تا بیدار شود:\n' +
-          base + '/health';
-        show({ error: e.message, api: base });
+        el.textContent = 'API offline: ' + e.message;
+        showError('ping', e, { api: base });
       }
     }
 
@@ -135,8 +143,8 @@
         if (res.data && res.data.token) {
           try { localStorage.setItem('token', res.data.token); } catch (e) {}
         }
-        show(res.data);
-      } catch (e) { show('register error: ' + e.message); }
+        show({ status: res.status, data: res.data });
+      } catch (e) { showError('register', e); }
     }
 
     async function login() {
@@ -151,20 +159,21 @@
         if (res.data && res.data.token) {
           try { localStorage.setItem('token', res.data.token); } catch (e) {}
         }
-        show(res.data);
-      } catch (e) { show('login error: ' + e.message); }
+        show({ status: res.status, data: res.data });
+      } catch (e) { showError('login', e); }
     }
 
     async function me() {
       try {
         var res = await fetchJson('/auth/me');
-        show(res.data);
-      } catch (e) { show('me error: ' + e.message); }
+        show({ status: res.status, data: res.data });
+      } catch (e) { showError('me', e); }
     }
 
     async function createAgent() {
       var name = val('agentName').trim();
-      if (!name) return show('نام لازم است');
+      if (!name) return show({ error: 'نام لازم است — مثلا My Assistant' });
+      if (!token()) return show({ error: 'اول ورود کن (token نیست)' });
       try {
         var res = await fetchJson('/agents', {
           method: 'POST',
@@ -174,27 +183,28 @@
             systemPrompt: 'You are a helpful agent.'
           })
         });
-        show(res.data);
-        listAgents();
-      } catch (e) { show('createAgent error: ' + e.message); }
+        show({ action: 'createAgent', status: res.status, url: res.url, data: res.data });
+        if (res.ok) listAgents();
+      } catch (e) { showError('createAgent', e); }
     }
 
     async function listAgents() {
+      if (!token()) return show({ error: 'اول ورود کن (token نیست)' });
       try {
         var res = await fetchJson('/agents');
         var list = (res.data && res.data.agents) || [];
         document.getElementById('agents').innerHTML = list.length
           ? list.map(function (a) {
               return '<div class="border border-slate-700 rounded-lg p-2 mb-1 flex justify-between gap-2">' +
-                '<span>' + (a.name || '') + '</span>' +
+                '<span>' + (a.name || '') + ' <span class="text-slate-500 text-xs">' + (a.id || '') + '</span></span>' +
                 '<button type="button" class="text-indigo-400 text-xs" data-run="' + a.id + '">اجرا</button></div>';
             }).join('')
           : '<span class="text-slate-500">ایجنتی نیست</span>';
-        show(res.data);
+        show({ action: 'listAgents', status: res.status, data: res.data });
         document.querySelectorAll('[data-run]').forEach(function (btn) {
           btn.onclick = function () { runAgent(btn.getAttribute('data-run')); };
         });
-      } catch (e) { show('listAgents error: ' + e.message); }
+      } catch (e) { showError('listAgents', e); }
     }
 
     async function runAgent(id) {
@@ -203,15 +213,13 @@
           method: 'POST',
           body: JSON.stringify({ input: { message: 'سلام' }, maxIterations: 3 })
         });
-        show(res.data);
-      } catch (e) { show('runAgent error: ' + e.message); }
+        show({ action: 'runAgent', status: res.status, data: res.data });
+      } catch (e) { showError('runAgent', e); }
     }
 
     document.getElementById('btnSaveApi').onclick = function () {
       var v = val('apiUrl').trim();
-      if (v) {
-        try { localStorage.setItem('API_URL', v); } catch (e) {}
-      }
+      if (v) { try { localStorage.setItem('API_URL', v); } catch (e) {} }
       ping();
     };
     document.getElementById('btnPing').onclick = ping;
