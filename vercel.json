@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npx prisma db push --schema packages/db/prisma/schema.prisma && node scripts/bootstrap-admin.mjs && npx prisma generate --schema packages/db/prisma/schema.prisma",
+  "buildCommand": "npx prisma db push --schema prisma/schema.prisma && node scripts/bootstrap-admin.mjs && npx prisma generate --schema prisma/schema.prisma",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
