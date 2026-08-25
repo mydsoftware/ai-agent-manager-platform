@@ -5,103 +5,470 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>داشبورد — AI Agent Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="config.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>body{font-family:Vazirmatn,sans-serif}.card{background:#0f172a;border:1px solid #1e293b;border-radius:18px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}</style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen">
-  <header class="border-b border-slate-800 px-5 py-4 flex justify-between items-center">
-    <div><div class="font-extrabold text-lg">AI Agent Manager</div><div class="text-xs text-slate-500">کنسول مدیریت</div></div>
-    <div class="flex gap-4 items-center"><a id="adminLink" href="/admin" class="hidden text-sm text-amber-400">مدیریت</a><a href="/" class="text-sm text-indigo-400">خانه</a></div>
+  <header class="border-b border-slate-800 px-5 py-4 flex flex-wrap gap-3 justify-between items-center">
+    <div><div class="font-extrabold text-lg">AI Agent Manager</div><div class="text-xs text-slate-500">کنسول مدیریت ایجنت</div></div>
+    <div id="userBox" class="hidden flex gap-3 items-center text-sm">
+      <span id="creditsChip" class="px-3 py-1 rounded-full bg-emerald-900/60 text-emerald-300">اعتبار: —</span>
+      <span id="planChip" class="px-3 py-1 rounded-full bg-slate-800 text-slate-300">—</span>
+      <span id="userEmail" class="text-slate-400 hidden sm:inline"></span>
+      <a id="adminLink" href="/admin.html" target="_blank" class="hidden text-amber-400">ادمین</a>
+      <button onclick="logout()" class="border border-slate-600 hover:bg-slate-800 px-3 py-1 rounded-lg">خروج</button>
+    </div>
   </header>
-  <main class="max-w-6xl mx-auto px-5 py-8 space-y-5">
-    <section class="card p-5">
-      <div class="flex flex-wrap gap-3 items-center justify-between">
-        <div><h1 class="text-2xl font-bold">داشبورد</h1><p class="text-slate-400 text-sm mt-1">مدیریت Agent و اجرای زنده کارها</p></div>
-        <div id="status" class="text-sm px-3 py-2 rounded-lg bg-slate-800">در حال بررسی...</div>
+
+  <!-- AUTH -->
+  <main id="authView" class="max-w-md mx-auto px-5 py-14 hidden">
+    <section class="card p-6 space-y-3">
+      <h1 class="text-xl font-bold text-center">ورود / ثبت‌نام</h1>
+      <input id="email" type="email" placeholder="ایمیل" autocomplete="email" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
+      <input id="password" type="password" placeholder="رمز عبور (۶ تا ۱۲۸ کاراکتر)" autocomplete="current-password" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
+      <input id="name" type="text" placeholder="نام (فقط ثبت‌نام)" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
+      <div class="flex gap-2"><button onclick="registerUser()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-semibold">ثبت‌نام</button><button onclick="loginUser()" class="flex-1 border border-slate-600 hover:bg-slate-800 px-4 py-2 rounded-lg font-semibold">ورود</button></div>
+      <p id="authMsg" class="text-xs text-red-400 min-h-4"></p>
+    </section>
+  </main>
+
+  <!-- APP -->
+  <main id="appView" class="max-w-6xl mx-auto px-5 py-6 space-y-5 hidden">
+    <nav id="tabs" class="flex gap-2 overflow-x-auto pb-1 text-sm">
+      <button data-tab="overview"   class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">نمای کلی</button>
+      <button data-tab="orchestrator" class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap bg-indigo-600/20 text-indigo-300 border border-indigo-700">مدیریت ایجنت ✦</button>
+      <button data-tab="specialists"  class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">متخصص‌ها</button>
+      <button data-tab="agents"       class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">ایجنت‌های من</button>
+      <button data-tab="live"         class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">اجرای زنده</button>
+      <button data-tab="billing"      class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">اعتبار و پرداخت</button>
+      <button data-tab="apikeys"      class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">کلیدهای API</button>
+      <button data-tab="tools"        class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">ابزارها</button>
+      <button data-tab="settings"     class="tab-btn px-4 py-2 rounded-lg whitespace-nowrap">تنظیمات</button>
+    </nav>
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview" class="tab-panel space-y-5 hidden">
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="card p-5"><div class="text-slate-400 text-sm">وضعیت دیتابیس</div><div id="ovDb" class="text-xl font-bold mt-2">—</div></div>
+        <div class="card p-5"><div class="text-slate-400 text-sm">اعتبار باقیمانده</div><div id="ovCredits" class="text-xl font-bold mt-2 text-emerald-400">—</div></div>
+        <div class="card p-5"><div class="text-slate-400 text-sm">پلن</div><div id="ovPlan" class="text-xl font-bold mt-2">—</div></div>
+      </div>
+      <div class="grid md:grid-cols-4 gap-4">
+        <div class="card p-5"><div class="text-slate-400 text-sm">کل اجراها</div><div id="ovRuns" class="text-xl font-bold mt-2">—</div></div>
+        <div class="card p-5"><div class="text-slate-400 text-sm">توکن مصرفی</div><div id="ovTokens" class="text-xl font-bold mt-2">—</div></div>
+        <div class="card p-5"><div class="text-slate-400 text-sm">اعتبار مصرفی</div><div id="ovCreditsUsed" class="text-xl font-bold mt-2">—</div></div>
+        <div class="card p-5"><div class="text-slate-400 text-sm">تعداد ایجنت‌ها</div><div id="ovAgents" class="text-xl font-bold mt-2">—</div></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-3">آخرین اجراها</h2>
+        <div id="ovRecent" class="space-y-1 text-sm text-slate-300"></div>
       </div>
     </section>
-    <section class="grid md:grid-cols-3 gap-4">
-      <div class="card p-5"><div class="text-slate-400 text-sm">وضعیت دیتابیس</div><div id="db" class="text-xl font-bold mt-2">—</div></div>
-      <div class="card p-5"><div class="text-slate-400 text-sm">اعتبار</div><div id="credits" class="text-xl font-bold mt-2">—</div></div>
-      <div class="card p-5"><div class="text-slate-400 text-sm">پلن</div><div id="plan" class="text-xl font-bold mt-2">—</div></div>
-    </section>
-    <section class="grid lg:grid-cols-2 gap-5">
+
+    <!-- ORCHESTRATOR -->
+    <section id="tab-orchestrator" class="tab-panel space-y-4 hidden">
+      <div class="card p-5 space-y-4">
+        <div><h1 class="text-xl font-bold text-indigo-400">مدیریت ایجنت</h1><p class="text-xs text-slate-500 mt-1">درخواست بده — متخصص موجود را پیدا می‌کند، نبود می‌سازد و با لوپ کنترل کیفیت تا سالم شدن خروجی ادامه می‌دهد</p></div>
+        <textarea id="orchInput" placeholder="مثلاً: من یک سایت در زمینه ماهواره مرکزی میخواهم..." class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-28 outline-none"></textarea>
+        <div class="flex flex-wrap gap-2 items-center">
+          <select id="orchCycles" class="bg-slate-800 rounded-lg px-3 py-2 text-sm"><option value="">چرخه کیفیت: پیش‌فرض (۳)</option><option value="1">۱ چرخه</option><option value="2">۲ چرخه</option><option value="3">۳ چرخه</option><option value="5">۵ چرخه</option></select>
+          <button id="orchBtn" onclick="runOrchestrator()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 px-4 py-3 rounded-lg font-bold">اجرای درخواست</button>
+        </div>
+        <div id="orchMeta" class="flex flex-wrap gap-2 text-xs"></div>
+      </div>
       <div class="card p-5 space-y-3">
-        <h2 class="font-bold">ورود / ثبت‌نام</h2>
-        <input id="email" type="email" placeholder="ایمیل" autocomplete="email" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
-        <input id="password" type="password" placeholder="رمز عبور (۶ تا ۱۲۸ کاراکتر)" autocomplete="current-password" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
-        <input id="name" type="text" placeholder="نام (برای ثبت‌نام)" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
-        <div class="flex gap-2"><button onclick="registerUser()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg">ثبت‌نام</button><button onclick="loginUser()" class="border border-slate-600 hover:bg-slate-800 px-4 py-2 rounded-lg">ورود</button></div>
-      </div>
-      <div class="card p-5 space-y-3">
-        <h2 class="font-bold">شارژ اعتبار</h2><p class="text-sm text-slate-400">درگاه واقعی پس از تنظیم PAYMENT_PROVIDER فعال می‌شود.</p>
-        <input id="amount" type="number" min="1000" max="100000000" value="100000" class="w-full bg-slate-800 rounded-lg px-3 py-2" />
-        <button onclick="checkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg">ایجاد پرداخت</button>
-        <button onclick="loadMe()" class="w-full border border-slate-700 px-4 py-2 rounded-lg">به‌روزرسانی حساب</button>
+        <div class="flex items-center justify-between"><h2 class="font-bold">خط تولید</h2><span id="orchState" class="text-xs px-2 py-1 rounded bg-slate-800">آماده</span></div>
+        <div id="orchEvents" class="text-sm text-slate-300 space-y-1 min-h-10"></div>
+        <pre id="orchOutput" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-24 whitespace-pre-wrap text-sm hidden max-h-96 overflow-auto"></pre>
       </div>
     </section>
-    <section class="card p-5 space-y-4">
-      <div class="flex flex-wrap gap-2 items-center justify-between"><div><h2 class="font-bold text-lg text-indigo-400">مدیریت ایجنت</h2><p class="text-xs text-slate-500">درخواست بده — متخصص موجود را پیدا می‌کند، نبود می‌سازد و تا سالم‌شدن خروجی لوپ می‌زند</p></div><span id="orchState" class="text-xs px-2 py-1 rounded bg-slate-800">آماده</span></div>
-      <textarea id="orchInput" placeholder="مثلاً: من یک سایت در زمینه ماهواره مرکزی میخواهم..." class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-24"></textarea>
-      <button id="orchBtn" onclick="runOrchestrator()" class="w-full bg-indigo-600 hover:bg-indigo-500 px-4 py-3 rounded-lg font-bold">اجرای درخواست توسط مدیر ایجنت</button>
-      <div id="orchEvents" class="text-xs text-slate-400 space-y-1"></div>
-      <div id="orchOutput" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-24 whitespace-pre-wrap text-sm hidden"></div>
-    </section>
-    <section class="card p-5 space-y-3">
-      <div class="flex justify-between items-center"><h2 class="font-bold text-lg">متخصص‌های من</h2><button onclick="loadSpecialists()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
+
+    <!-- SPECIALISTS -->
+    <section id="tab-specialists" class="tab-panel space-y-4 hidden">
+      <div class="flex justify-between items-center"><h1 class="text-xl font-bold">متخصص‌ها</h1><button onclick="loadSpecialists()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
       <div id="specialists" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
     </section>
-    <section class="card p-5 space-y-4">
-      <div class="flex justify-between items-center"><div><h2 class="font-bold text-lg">Agentهای من</h2><p class="text-xs text-slate-500">اجرای زنده با SSE</p></div><button onclick="loadAgents()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
-      <div id="agents" class="grid md:grid-cols-2 gap-3"></div>
-      <div class="grid gap-3 border-t border-slate-800 pt-4"><input id="agentName" placeholder="نام Agent جدید" class="w-full bg-slate-800 rounded-lg px-3 py-2" /><textarea id="agentPrompt" placeholder="System Prompt" class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-20"></textarea><button onclick="createAgent()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg">ساخت Agent دستی</button></div>
+
+    <!-- AGENTS -->
+    <section id="tab-agents" class="tab-panel space-y-4 hidden">
+      <div class="card p-5 space-y-4">
+        <div class="flex justify-between items-center"><h1 class="text-xl font-bold">ایجنت‌های من</h1><button onclick="loadAgents()" class="border border-slate-700 px-3 py-2 rounded-lg text-sm">به‌روزرسانی</button></div>
+        <div id="agents" class="grid md:grid-cols-2 gap-3"></div>
+        <div class="grid gap-3 border-t border-slate-800 pt-4">
+          <h3 class="font-bold text-sm text-slate-400">ساخت دستی ایجنت</h3>
+          <input id="agentName" placeholder="نام ایجنت جدید" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
+          <textarea id="agentPrompt" placeholder="System Prompt" class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-20 outline-none"></textarea>
+          <button onclick="createAgent()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg w-max">ساخت ایجنت</button>
+        </div>
+      </div>
+      <div id="agentDetail" class="card p-5 space-y-3 hidden">
+        <div class="flex justify-between items-center"><h2 class="font-bold">جزئیات: <span id="detailName" class="text-indigo-300"></span></h2><button onclick="$('agentDetail').classList.add('hidden')" class="text-slate-500 text-sm">بستن</button></div>
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div>
+            <h3 class="text-sm font-bold text-slate-400 mb-2">تاریخچه اجراها</h3>
+            <div id="detailRuns" class="space-y-1 text-xs text-slate-300 max-h-64 overflow-auto"></div>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-400 mb-2">حافظه ایجنت</h3>
+            <div id="detailMemory" class="space-y-1 text-xs text-slate-300 max-h-40 overflow-auto"></div>
+            <div class="flex gap-2 mt-2"><input id="memoryInput" placeholder="افزودن خاطره..." class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs outline-none" /><button onclick="addMemory()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs">ذخیره</button></div>
+          </div>
+        </div>
+      </div>
     </section>
-    <section class="card p-5 space-y-3">
-      <div class="flex flex-wrap gap-2 items-center justify-between"><h2 class="font-bold text-lg">اجرای زنده</h2><span id="runState" class="text-xs px-2 py-1 rounded bg-slate-800">آماده</span></div>
-      <select id="agentSelect" class="w-full bg-slate-800 rounded-lg px-3 py-2"><option value="">ابتدا Agent را انتخاب کنید</option></select>
-      <textarea id="runInput" placeholder="درخواست خود را بنویسید..." class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-28"></textarea>
-      <button id="runBtn" onclick="runStream()" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded-lg font-bold">اجرای Agent</button>
-      <div id="live" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-32 whitespace-pre-wrap text-sm"></div>
-      <div id="events" class="text-xs text-slate-500 space-y-1"></div>
+
+    <!-- LIVE RUN -->
+    <section id="tab-live" class="tab-panel space-y-4 hidden">
+      <div class="card p-5 space-y-3">
+        <div class="flex flex-wrap gap-2 items-center justify-between"><h1 class="text-xl font-bold">اجرای زنده</h1><span id="runState" class="text-xs px-2 py-1 rounded bg-slate-800">آماده</span></div>
+        <select id="agentSelect" onchange="syncSelectedAgent()" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none"><option value="">ابتدا ایجنت را انتخاب کنید</option></select>
+        <textarea id="runInput" placeholder="درخواست خود را بنویسید..." class="w-full bg-slate-800 rounded-lg px-3 py-2 min-h-28 outline-none"></textarea>
+        <button id="runBtn" onclick="runStream()" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded-lg font-bold">اجرای ایجنت</button>
+        <div id="live" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-32 whitespace-pre-wrap text-sm max-h-96 overflow-auto"></div>
+        <div id="events" class="text-xs text-slate-500 space-y-1"></div>
+      </div>
     </section>
-    <pre id="out" class="card p-4 text-xs text-slate-300 overflow-auto min-h-20 whitespace-pre-wrap"></pre>
+
+    <!-- BILLING & USAGE -->
+    <section id="tab-billing" class="tab-panel space-y-5 hidden">
+      <div class="card p-5 space-y-3">
+        <h1 class="text-xl font-bold">شارژ اعتبار</h1>
+        <p class="text-sm text-slate-400">درگاه واقعی پس از تنظیم PAYMENT_PROVIDER فعال می‌شود. فعلاً حالت تستی است.</p>
+        <div class="flex flex-wrap gap-2 items-center"><input id="amount" type="number" min="10000" max="100000000" step="10000" value="100000" class="w-44 bg-slate-800 rounded-lg px-3 py-2 outline-none" /><span class="text-xs text-slate-500">ریال · هر ۱٬۰۰۰ ریال = ۱ اعتبار</span><button onclick="checkout()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg font-semibold">ایجاد پرداخت</button></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-3">تاریخچه پرداخت</h2>
+        <div id="payments" class="text-sm text-slate-300 space-y-1"></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-3">گزارش مصرف</h2>
+        <div id="usageReport" class="text-sm text-slate-300 grid md:grid-cols-3 gap-3"></div>
+      </div>
+    </section>
+
+    <!-- API KEYS -->
+    <section id="tab-apikeys" class="tab-panel space-y-5 hidden">
+      <div class="card p-5 space-y-3">
+        <h1 class="text-xl font-bold">کلیدهای API</h1>
+        <p class="text-sm text-slate-400">با هدر <code class="mono text-indigo-300">x-api-key</code> به تمام روت‌ها دسترسی برنامه‌نویسی دارید.</p>
+        <div class="flex gap-2"><input id="keyName" placeholder="نام کلید" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 outline-none" /><button onclick="createKey()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg">ساخت کلید</button></div>
+        <div id="newKey" class="hidden mono bg-emerald-950 border border-emerald-800 rounded-lg p-4 text-sm break-all"></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-3">کلیدهای من</h2>
+        <div id="keysList" class="space-y-2 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section id="tab-tools" class="tab-panel space-y-5 hidden">
+      <div class="card p-5 space-y-3">
+        <h1 class="text-xl font-bold">ابزارها</h1>
+        <p class="text-sm text-slate-400">ابزارهای مجاز برای ایجنت‌ها. اجرای مستقیم نیازمند انتخاب ایجنت و مجوز ابزار است.</p>
+        <div class="flex flex-wrap gap-2">
+          <select id="toolAgent" class="bg-slate-800 rounded-lg px-3 py-2 text-sm min-w-48"><option value="">انتخاب ایجنت...</option></select>
+          <select id="toolName" class="bg-slate-800 rounded-lg px-3 py-2 text-sm"></select>
+          <input id="toolInput" placeholder='{"query":"..."}' class="mono flex-1 bg-slate-800 rounded-lg px-3 py-2 text-sm outline-none min-w-48" />
+          <button onclick="executeTool()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">اجرا</button>
+        </div>
+        <pre id="toolResult" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs whitespace-pre-wrap hidden max-h-64 overflow-auto"></pre>
+      </div>
+      <div class="card p-5"><h2 class="font-bold mb-3">فهرست ابزارها</h2><div id="toolsList" class="grid md:grid-cols-2 gap-3"></div></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab-panel space-y-5 hidden">
+      <div class="card p-5 space-y-3">
+        <h1 class="text-xl font-bold">تنظیمات اتصال</h1>
+        <label class="text-sm text-slate-400 block">آدرس API</label>
+        <div class="flex gap-2">
+          <input id="apiBaseInput" class="mono flex-1 bg-slate-800 rounded-lg px-3 py-2 text-sm outline-none" placeholder="/api یا https://...onrender.com/api" />
+          <button onclick="saveApiBase()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm">ذخیره</button>
+          <button onclick="resetApiBase()" class="border border-slate-600 px-4 py-2 rounded-lg text-sm">همان دامنه</button>
+        </div>
+        <p class="text-xs text-slate-500">روی GitHub Pages آدرس API سرور (مثلاً Render) را وارد کنید. روی Vercel یا سرور اختصاصی، پیش‌فرض همان دامنه کافی است.</p>
+        <div class="text-xs text-slate-400">فعلی: <code id="apiBaseNow" class="mono text-indigo-300"></code></div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-2">خروجی خام آخرین عملیات</h2>
+        <pre id="out" class="mono bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs overflow-auto max-h-80 whitespace-pre-wrap"></pre>
+      </div>
+    </section>
   </main>
+
 <script>
-const API='/api'; const $=id=>document.getElementById(id); const token=()=>localStorage.getItem('token')||''; let agents=[];
-function show(x){$('out').textContent=typeof x==='string'?x:JSON.stringify(x,null,2)}
-async function request(path,options={}){const headers={...(options.headers||{}),'Content-Type':'application/json'};if(token())headers.Authorization='Bearer '+token();const r=await fetch(API+path,{...options,headers});let d;try{d=await r.json()}catch{d={error:'INVALID_RESPONSE'}}if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{data:d,status:r.status});return d}
-async function health(){try{const d=await request('/health');$('db').textContent=d.database==='connected'?'متصل':d.database;$('status').textContent=d.status==='ok'?'API سالم':'API نیازمند تنظیمات'}catch(e){$('status').textContent='خطا';show(e.message)}}
-function applyAccount(d){$('credits').textContent=d.tenant?d.tenant.credits:'—';$('plan').textContent=d.tenant?d.tenant.plan:'—';if(d.user?.isAdmin)$('adminLink').classList.remove('hidden')}
-async function loadMe(){if(!token()){applyAccount({});show('ابتدا وارد شوید.');return}try{const d=await request('/auth/me');applyAccount(d);await loadAgents();loadSpecialists();show(d)}catch(e){localStorage.removeItem('token');applyAccount({});show(e.message)}}
-async function registerUser(){try{const d=await request('/auth/register',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value,name:$('name').value||undefined})});localStorage.setItem('token',d.token);applyAccount(d);await loadAgents();show(d)}catch(e){show(e.data||e.message)}}
-async function loginUser(){try{const d=await request('/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});localStorage.setItem('token',d.token);applyAccount(d);await loadAgents();show(d)}catch(e){show(e.data||e.message)}}
-async function checkout(){try{const d=await request('/billing/checkout',{method:'POST',body:JSON.stringify({amount:Number($('amount').value)})});show(d);if(d.status==='SUCCESS')await loadMe()}catch(e){show(e.data||e.message)}}
-async function loadAgents(){if(!token())return;try{const d=await request('/agents');agents=d.agents||[];$('agents').innerHTML=agents.length?agents.map(a=>`<button onclick="selectAgent('${a.id}')" class="text-right bg-slate-800 hover:bg-slate-700 rounded-xl p-4"><div class="font-bold">${escapeHtml(a.name)}</div><div class="text-xs text-slate-500 mt-1">${escapeHtml(a.slug)}</div></button>`).join(''):'<div class="text-slate-500 text-sm">هنوز Agentی ساخته نشده است.</div>';$('agentSelect').innerHTML='<option value="">انتخاب Agent</option>'+agents.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}catch(e){show(e.message)}}
-async function createAgent(){try{const name=$('agentName').value.trim();if(!name)return show('نام Agent الزامی است.');const d=await request('/agents',{method:'POST',body:JSON.stringify({name,systemPrompt:$('agentPrompt').value.trim()||undefined})});$('agentName').value='';$('agentPrompt').value='';await loadAgents();selectAgent(d.agent.id);show(d)}catch(e){show(e.data||e.message)}}
-function selectAgent(id){$('agentSelect').value=id}
-let specialists=[];
-async function loadSpecialists(){if(!token())return;try{const d=await request('/specialists');specialists=d.specialists||[];$('specialists').innerHTML=specialists.length?specialists.map(s=>`<div class="bg-slate-800 rounded-xl p-4"><div class="flex justify-between items-start"><div class="font-bold">${escapeHtml(s.name)}</div><span class="text-[10px] px-2 py-0.5 rounded ${s.origin==='SEED'?'bg-emerald-900 text-emerald-300':'bg-indigo-900 text-indigo-300'}">${s.origin==='SEED'?'پایه':'ساخت خودکار'}</span></div><div class="text-xs text-slate-400 mt-1">${escapeHtml(s.description||'')}</div>${s.specialty?`<div class="text-[10px] text-slate-500 mt-2 mono">${escapeHtml(String(s.specialty))}</div>`:''}</div>`).join(''):'<div class="text-slate-500 text-sm">هنوز متخصصی ثبت نشده است.</div>'}catch(e){}}
-function orchEvent(text,cls=''){const el=document.createElement('div');if(cls)el.className=cls;el.textContent=text;$('orchEvents').prepend(el);if($('orchEvents').children.length>40)$('orchEvents').lastChild.remove()}
-async function runOrchestrator(){const input=$('orchInput').value.trim();if(!input)return show('درخواست را بنویسید.');if(!token())return show('ابتدا وارد شوید.');$('orchBtn').disabled=true;$('orchState').textContent='در حال اجرا';$('orchOutput').classList.add('hidden');$('orchOutput').textContent='';$('orchEvents').innerHTML='';try{const r=await fetch(API+'/orchestrator/request/stream',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:JSON.stringify({input})});if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.error||('HTTP '+r.status))}if(!r.body)throw new Error('STREAM_UNSUPPORTED');const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';for(const chunk of chunks){const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;handleOrchEvent(JSON.parse(line.slice(6)))}}$('orchState').textContent='تکمیل شد'}catch(e){$('orchState').textContent='خطا';orchEvent('خطا: '+e.message,'text-red-400');show(e.message)}finally{$('orchBtn').disabled=false;loadSpecialists();loadAgents()}}
+const $=id=>document.getElementById(id);
+const API=()=>window.AAM_API_BASE||'/api';
+const token=()=>localStorage.getItem('token')||'';
+let agents=[], specialists=[], selectedAgent='', tools=[];
+
+function show(x){const el=$('out');if(el)el.textContent=typeof x==='string'?x:JSON.stringify(x,null,2)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+async function request(path,options={}){
+  const headers={...(options.headers||{}),'Content-Type':'application/json'};
+  if(token())headers.Authorization='Bearer '+token();
+  const r=await fetch(API()+path,{...options,headers});
+  let d;try{d=await r.json()}catch{d={error:'INVALID_RESPONSE'}}
+  if(r.status===401&&path!=='/auth/login'&&path!=='/auth/register'){logout(true);throw Object.assign(new Error(d.error||'UNAUTHORIZED'),{status:r.status})}
+  if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{data:d,status:r.status});
+  return d;
+}
+async function sseRequest(path,body,onEvent,signal){
+  const r=await fetch(API()+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:JSON.stringify(body),signal});
+  if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.error||('HTTP '+r.status))}
+  if(!r.body)throw new Error('STREAM_UNSUPPORTED');
+  const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';
+  while(true){const {value,done}=await reader.read();if(done)break;
+    buffer+=decoder.decode(value,{stream:true});
+    const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';
+    for(const chunk of chunks){const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(line)onEvent(JSON.parse(line.slice(6)))}}
+}
+
+/* ---------- auth ---------- */
+function applyAccount(d){
+  if(d?.tenant){$('creditsChip').textContent='اعتبار: '+d.tenant.credits;$('planChip').textContent=d.tenant.plan||'FREE'}
+  if(d?.user){$('userEmail').textContent=d.user.email;$('adminLink').classList.toggle('hidden',!d.user.isAdmin)}
+}
+function enterApp(){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('userBox').classList.remove('hidden')}
+async function registerUser(){try{$('authMsg').textContent='';const d=await request('/auth/register',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value,name:$('name').value||undefined})});localStorage.setItem('token',d.token);boot()}catch(e){$('authMsg').textContent=e.data?JSON.stringify(e.data):e.message}}
+async function loginUser(){try{$('authMsg').textContent='';const d=await request('/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});localStorage.setItem('token',d.token);boot()}catch(e){$('authMsg').textContent=(e.data&&(e.data.error==='INVALID_CREDENTIALS'?'ایمیل یا رمز اشتباه است.':e.data.error))||e.message}}
+function logout(silent){localStorage.removeItem('token');if(silent)return location.reload();location.reload()}
+async function loadMe(){try{const d=await request('/auth/me');applyAccount(d);return d}catch(e){return null}}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('bg-indigo-600/20','text-indigo-300','border','border-indigo-700'));
+  $('tab-'+btn.dataset.tab).classList.remove('hidden');
+  btn.classList.add('bg-indigo-600/20','text-indigo-300','border','border-indigo-700');
+  const loaders={overview:refreshOverview,specialists:loadSpecialists,agents:loadAgents,live:fillAgentSelects,billing:loadBilling,apikeys:loadKeys,tools:initTools};
+  loaders[btn.dataset.tab]?.();
+}));
+
+/* ---------- overview ---------- */
+async function refreshOverview(){
+  try{const h=await fetch(API()+'/health').then(r=>r.json());$('ovDb').textContent=h.database==='connected'?'متصل':'متصل نیست';}catch{$('ovDb').textContent='قطع'}
+  const me=await loadMe();
+  $('ovCredits').textContent=me?.tenant?me.tenant.credits:'—';$('ovPlan').textContent=me?.tenant?me.tenant.plan:'—';
+  try{const u=await request('/usage');
+    $('ovRuns').textContent=u.totalRuns;$('ovTokens').textContent=u.tokensUsed.toLocaleString('fa-IR');
+    $('ovCreditsUsed').textContent=u.creditsUsed;$('ovAgents').textContent=u.agents;
+    $('ovRecent').innerHTML=(u.recentRuns||[]).slice(0,6).map(r=>`<div class="flex justify-between border-b border-slate-800/60 py-1"><span>${esc(new Date(r.createdAt).toLocaleString('fa-IR'))}</span><span class="${r.status==='COMPLETED'?'text-emerald-400':r.status==='FAILED'?'text-red-400':'text-amber-400'}">${r.status}</span><span class="text-slate-500">${r.creditsUsed||0} اعتبار</span></div>`).join('')||'<div class="text-slate-500">هنوز اجرایی ثبت نشده.</div>';
+  }catch(e){show(e.message)}
+}
+
+/* ---------- orchestrator ---------- */
+function orchEvent(text,cls=''){const el=document.createElement('div');el.className=cls;el.textContent=text;$('orchEvents').prepend(el)}
+async function runOrchestrator(){
+  const input=$('orchInput').value.trim();
+  if(!input)return alert('درخواست را بنویسید.');
+  $('orchBtn').disabled=true;$('orchState').textContent='در حال اجرا';
+  $('orchEvents').innerHTML='';$('orchOutput').classList.add('hidden');$('orchMeta').innerHTML='';
+  try{
+    await sseRequest('/orchestrator/request/stream',{input,maxCycles:$('orchCycles').value?Number($('orchCycles').value):undefined},handleOrchEvent);
+    $('orchState').textContent='تکمیل شد';
+  }catch(e){$('orchState').textContent='خطا';orchEvent('خطا: '+e.message,'text-red-400')}
+  finally{$('orchBtn').disabled=false;loadSpecialists();}
+}
+function chip(label,value,color='slate'){return `<span class="px-3 py-1 rounded-full bg-${color}-900/60 text-${color}-300">${label}: ${esc(value)}</span>`}
 function handleOrchEvent(e){
   if(e.type==='status'){orchEvent('🔍 جستجوی متخصص مناسب...');return}
   if(e.type==='agent'){
-    const label=e.source==='FOUND'?'✅ متخصص موجود استفاده شد':e.source==='CREATED'?'🛠 متخصص جدید ساخته شد':'📦 از متخصص‌های پایه';
-    orchEvent(`${label}: ${e.agentName}${e.specialty?` (${e.specialty})`:''}`);return}
+    orchEvent(`${e.source==='FOUND'?'✅ متخصص موجود استفاده شد':e.source==='CREATED'?'🛠 متخصص جدید ساخته شد':'📦 متخصص پایه'}: ${e.agentName}${e.specialty?' ('+e.specialty+')':''}`,'text-indigo-300');return}
   if(e.type==='cycle'){orchEvent(`⚙️ چرخه اجرا ${e.cycle} از ${e.maxCycles}...`);return}
   if(e.type==='verifying'){orchEvent(`🧪 بررسی کیفیت خروجی (چرخه ${e.cycle})...`);return}
-  if(e.type==='retry'){orchEvent(`⚠️ نقص‌ها پیدا شد — اصلاح مجدد: ${(e.issues||[]).join('، ')}`,'text-amber-400');return}
+  if(e.type==='retry'){orchEvent('⚠️ نقص‌ها: '+(e.issues||[]).join('، '),'text-amber-400');return}
   if(e.type==='done'){
     const res=e.result||{};
-    orchEvent(`${res.verdict?.pass?'✅ خروجی تأیید شد':'⛔ پس از '+res.cycles+' چرخه نقص باقی مانده'}`,res.verdict?.pass?'text-emerald-400':'text-amber-400');
+    orchEvent(res.verdict?.pass?'✅ خروجی تأیید شد':'⛔ پس از '+res.cycles+' چرخه هنوز نقص دارد',res.verdict?.pass?'text-emerald-400':'text-amber-400');
+    $('orchMeta').innerHTML=[chip('منبع',{FOUND:'کاتالوگ',CREATED:'ساخت خودکار',SEED:'پایه'}[res.source]||res.source,res.agent?.name||''),chip('چرخه‌ها',res.cycles),chip('توکن',res.tokensUsed||0)].join('');
     $('orchOutput').textContent=res.output||'';$('orchOutput').classList.remove('hidden');
-    show(res);return}
-  if(e.type==='error'){throw new Error(e.error||'ORCHESTRATION_FAILED')}}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function addEvent(text){const el=document.createElement('div');el.textContent=text;$('events').prepend(el);if($('events').children.length>30)$('events').lastChild.remove()}
-async function runStream(){const id=$('agentSelect').value, input=$('runInput').value.trim();if(!id)return show('یک Agent انتخاب کنید.');if(!input)return show('درخواست را وارد کنید.');if(!token())return show('ابتدا وارد شوید.');$('runBtn').disabled=true;$('runState').textContent='در حال اجرا';$('live').textContent='';$('events').innerHTML='';try{const r=await fetch(API+'/agents/'+encodeURIComponent(id)+'/stream',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:JSON.stringify({input})});if(!r.ok){let d={};try{d=await r.json()}catch{}throw new Error(d.error||('HTTP '+r.status))}if(!r.body)throw new Error('STREAM_UNSUPPORTED');const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';for(const chunk of chunks){const line=chunk.split('\n').find(x=>x.startsWith('data: '));if(!line)continue;const event=JSON.parse(line.slice(6));handleStreamEvent(event)}}$('runState').textContent='تکمیل شد'}catch(e){$('runState').textContent='خطا';addEvent('خطا: '+e.message);show(e.message)}finally{$('runBtn').disabled=false}}
-function handleStreamEvent(e){if(e.type==='delta'){$('live').textContent+=e.text||'';return}if(e.type==='status'){const labels={thinking:'در حال فکر کردن'};$('runState').textContent=labels[e.status]||e.status;addEvent((labels[e.status]||e.status)+(e.iteration?` — مرحله ${e.iteration}`:''));return}if(e.type==='provider'){addEvent(`Provider: ${e.provider} / ${e.model}`);return}if(e.type==='tool_start'){addEvent(`شروع ابزار: ${e.name}`);$('runState').textContent='در حال اجرای ابزار';return}if(e.type==='tool_result'){addEvent(`نتیجه ابزار: ${e.name}`);$('runState').textContent='در حال ادامه';return}if(e.type==='done'){addEvent(`تکمیل در مرحله ${e.iteration}`);$('runState').textContent='تکمیل شد';return}if(e.type==='error'){throw new Error(e.error||'AGENT_STREAM_FAILED')}}
-health();loadMe();
+    show(res);
+    if(res.agent?.id)selectAgentForRun(res.agent.id);
+    return}
+  if(e.type==='error'){orchEvent('خطا: '+e.error,'text-red-400')}
+}
+
+/* ---------- specialists ---------- */
+async function loadSpecialists(){
+  if(!token())return;
+  try{
+    const d=await request('/specialists');specialists=d.specialists||[];
+    $('specialists').innerHTML=specialists.length?specialists.map(s=>`
+      <div class="bg-slate-800 rounded-xl p-4">
+        <div class="flex justify-between items-start gap-2"><div class="font-bold">${esc(s.name)}</div><span class="text-[10px] px-2 py-0.5 rounded ${s.origin==='SEED'?'bg-emerald-900 text-emerald-300':'bg-indigo-900 text-indigo-300'}">${s.origin==='SEED'?'پایه':'ساخت خودکار'}</span></div>
+        <div class="text-xs text-slate-400 mt-1">${esc(s.description||'')}</div>
+        ${s.specialty?`<div class="text-[10px] text-slate-500 mt-2 mono">${esc(String(s.specialty))}</div>`:''}
+      </div>`).join(''):'<div class="text-slate-500 text-sm">متخصصی ثبت نشده است. اولین درخواست مدیریت ایجنت را بدهید.</div>';
+  }catch(e){show(e.message)}
+}
+
+/* ---------- agents ---------- */
+async function loadAgents(){
+  if(!token())return;
+  try{
+    const d=await request('/agents');agents=d.agents||[];
+    renderAgents();fillAgentSelects();
+  }catch(e){show(e.message)}
+}
+function renderAgents(){
+  $('agents').innerHTML=agents.length?agents.map(a=>`
+    <div class="bg-slate-800 rounded-xl p-4 space-y-2" data-id="${a.id}">
+      <div class="flex justify-between items-start gap-2">
+        <div class="cursor-pointer hover:text-indigo-300" onclick="openAgent('${a.id}')"><div class="font-bold">${esc(a.name)}</div><div class="text-[11px] text-slate-500 mono">${esc(a.slug)}</div></div>
+        <div class="flex gap-1">
+          ${a.origin&&a.origin!=='MANUAL'?`<span class="text-[10px] px-2 py-0.5 rounded ${a.origin==='SEED'?'bg-emerald-900 text-emerald-300':'bg-indigo-900 text-indigo-300'}">${a.origin==='SEED'?'پایه':'خودکار'}</span>`:''}
+          ${a.specialty?`<span class="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 mono">${esc(String(a.specialty))}</span>`:''}
+        </div>
+      </div>
+      <div class="flex gap-1 flex-wrap">
+        <button onclick="selectAgentForRun('${a.id}')" class="text-xs bg-emerald-700 hover:bg-emerald-600 px-3 py-1 rounded-lg">اجرای زنده</button>
+        <button onclick="openAgent('${a.id}')" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-lg">جزئیات</button>
+      </div>
+    </div>`).join(''):'<div class="text-slate-500 text-sm">هنوز ایجنتی ساخته نشده است.</div>';
+}
+async function createAgent(){
+  const name=$('agentName').value.trim();
+  if(!name)return alert('نام ایجنت الزامی است.');
+  try{
+    const d=await request('/agents',{method:'POST',body:JSON.stringify({name,systemPrompt:$('agentPrompt').value.trim()||undefined})});
+    $('agentName').value='';$('agentPrompt').value='';show(d);
+    await loadAgents();openAgent(d.agent.id);
+  }catch(e){alert(e.message)}
+}
+async function openAgent(id){
+  const a=agents.find(x=>x.id===id);if(!a)return;
+  $('agentDetail').classList.remove('hidden');$('detailName').textContent=a.name;$('agentDetail').dataset.id=id;
+  try{
+    const [runs,mem]=await Promise.all([request(`/agents/${id}/runs`),request(`/agents/${id}/memory`)]);
+    $('detailRuns').innerHTML=(runs.runs||[]).map(r=>`<div class="border-b border-slate-800/60 py-1 flex justify-between gap-2"><span class="truncate max-w-40">${esc(JSON.stringify(r.input)?.slice(0,60)||'')}</span><span class="${r.status==='COMPLETED'?'text-emerald-400':r.status==='FAILED'?'text-red-400':'text-slate-500'}">${r.status}</span></div>`).join('')||'<div class="text-slate-500">اجرایی نیست.</div>';
+    renderMemories(mem.memories||[]);
+  }catch(e){show(e.message)}
+}
+function renderMemories(list){
+  $('detailMemory').innerHTML=list.length?list.map(m=>`<div class="border-b border-slate-800/60 py-1">${esc(m.content.slice(0,120))}</div>`).join(''):'<div class="text-slate-500">حافظه‌ای نیست.</div>';
+}
+async function addMemory(){
+  const id=$('agentDetail').dataset.id,content=$('memoryInput').value.trim();
+  if(!id||!content)return;
+  try{await request(`/agents/${id}/memory`,{method:'POST',body:JSON.stringify({content})});$('memoryInput').value='';openAgent(id)}catch(e){show(e.message)}
+}
+
+/* ---------- live run ---------- */
+function fillAgentSelects(){
+  for(const selId of ['agentSelect','toolAgent']){
+    const sel=$(selId);const current=sel.value;
+    sel.innerHTML='<option value="">'+(selId==='agentSelect'?'انتخاب ایجنت...':'انتخاب ایجنت (مجوز ابزار)...')+'</option>'+
+      agents.map(a=>`<option value="${a.id}"${a.id===current?' selected':''}>${esc(a.name)}</option>`).join('');
+  }
+  syncSelectedAgent();
+}
+function selectAgentForRun(id){selectedAgent=id;if(!$('tab-live').classList.contains('hidden'))fillAgentSelects();else fillAgentSelects();}
+function syncSelectedAgent(){selectedAgent=$('agentSelect').value||selectedAgent}
+function addRunEvent(text){const el=document.createElement('div');el.textContent=text;$('events').prepend(el);if($('events').children.length>30)$('events').lastChild.remove()}
+async function runStream(){
+  const id=$('agentSelect').value,input=$('runInput').value.trim();
+  if(!id)return alert('یک ایجنت انتخاب کنید.');if(!input)return alert('درخواست را وارد کنید.');
+  $('runBtn').disabled=true;$('runState').textContent='در حال اجرا';$('live').textContent='';$('events').innerHTML='';
+  try{
+    await sseRequest('/agents/'+encodeURIComponent(id)+'/stream',{input},e=>{
+      if(e.type==='delta'){$('live').textContent+=e.text||'';return}
+      if(e.type==='status'){addRunEvent('در حال فکر کردن'+(e.iteration?` — مرحله ${e.iteration}`:''));return}
+      if(e.type==='provider'){addRunEvent(`Provider: ${e.provider}/${e.model}`);return}
+      if(e.type==='tool_start'){addRunEvent('شروع ابزار: '+e.name);return}
+      if(e.type==='tool_result'){addRunEvent('نتیجه ابزار: '+e.name);return}
+      if(e.type==='done'){addRunEvent(`✅ تکمیل در مرحله ${e.iteration}`+(e.usage?` (${e.usage.inputTokens||0}+${e.usage.outputTokens||0} توکن)`:''),'text-emerald-400');return}
+      if(e.type==='error'){addRunEvent('خطا: '+e.error,'text-red-400')}
+    });
+    $('runState').textContent='تکمیل شد';
+  }catch(e){$('runState').textContent='خطا';addRunEvent('خطا: '+e.message,'text-red-400')}
+  finally{$('runBtn').disabled=false;loadMe()}
+}
+
+/* ---------- billing ---------- */
+async function checkout(){
+  try{
+    const d=await request('/billing/checkout',{method:'POST',body:JSON.stringify({amount:Number($('amount').value)})});
+    show(d);applyAccount({tenant:d.tenant});alert(d.payment.status==='SUCCESS'?`${d.credited} اعتبار شارژ شد.`:'پرداخت ثبت شد: '+d.payment.status);
+    loadPayments();
+  }catch(e){alert((e.data&&e.data.error)||e.message)}
+}
+async function loadBilling(){loadPayments();loadUsage()}
+async function loadPayments(){
+  try{
+    const d=await request('/billing/payments');
+    $('payments').innerHTML=(d.payments||[]).length?d.payments.map(p=>`<div class="flex justify-between border-b border-slate-800/60 py-1"><span>${esc(new Date(p.createdAt).toLocaleDateString('fa-IR'))}</span><span>${p.amount.toLocaleString('fa-IR')} ریال</span><span class="${p.status==='SUCCESS'?'text-emerald-400':'text-amber-400'}">${p.status}</span><span class="text-slate-500">${p.provider}</span></div>`).join(''):'<div class="text-slate-500">پرداختی ثبت نشده.</div>';
+  }catch(e){show(e.message)}
+}
+async function loadUsage(){
+  try{
+    const u=await request('/usage');
+    $('usageReport').innerHTML=`
+      <div class="bg-slate-800 rounded-xl p-4"><div class="text-slate-400 text-xs">کل اجراها</div><div class="text-lg font-bold">${u.totalRuns}</div></div>
+      <div class="bg-slate-800 rounded-xl p-4"><div class="text-slate-400 text-xs">توکن مصرفی</div><div class="text-lg font-bold">${(u.tokensUsed||0).toLocaleString('fa-IR')}</div></div>
+      <div class="bg-slate-800 rounded-xl p-4"><div class="text-slate-400 text-xs">اعتبار مصرفی</div><div class="text-lg font-bold">${u.creditsUsed||0}</div></div>`;
+  }catch(e){show(e.message)}
+}
+
+/* ---------- api keys ---------- */
+async function createKey(){
+  try{
+    const d=await request('/api-keys',{method:'POST',body:JSON.stringify({name:$('keyName').value.trim()||undefined})});
+    const box=$('newKey');box.classList.remove('hidden');
+    box.innerHTML=`کلید جدید (فقط همین بار نمایش داده می‌شود — کپی کنید):<br><b class="text-emerald-300 break-all">${esc(d.key)}</b> <button onclick="navigator.clipboard.writeText('${esc(d.key)}')" class="mr-2 bg-slate-700 px-2 py-1 rounded text-xs">کپی</button>`;
+    loadKeys();
+  }catch(e){show(e.data||e.message)}
+}
+async function loadKeys(){
+  if(!token())return;
+  try{
+    const d=await request('/api-keys');
+    $('keysList').innerHTML=(d.keys||[]).length?d.keys.map(k=>`<div class="flex justify-between items-center border-b border-slate-800/60 py-2"><div><b>${esc(k.name)}</b> <span class="mono text-xs text-slate-500">${esc(k.prefix)}…</span></div><div class="flex gap-2 items-center text-xs text-slate-500">${k.revokedAt?'<span class="text-red-400">لغو شده</span>':`<span>${new Date(k.createdAt).toLocaleDateString('fa-IR')}</span><button onclick="revokeKey('${k.id}')" class="bg-red-900/70 hover:bg-red-800 px-2 py-1 rounded">لغو</button>`}</div></div>`).join(''):'<div class="text-slate-500">کلیدی ندارید.</div>';
+  }catch(e){show(e.message)}
+}
+async function revokeKey(id){if(!confirm('این کلید لغو شود؟'))return;try{await request('/api-keys/'+id,{method:'DELETE'});loadKeys()}catch(e){alert(e.message)}}
+
+/* ---------- tools ---------- */
+async function initTools(){
+  fillAgentSelects();
+  try{
+    const d=await request('/tools');tools=d.tools||[];
+    $('toolName').innerHTML=tools.map(t=>`<option value="${t.name}">${t.name} (${t.risk})</option>`).join('');
+    $('toolsList').innerHTML=tools.map(t=>`<div class="bg-slate-800 rounded-xl p-4"><div class="flex justify-between"><b>${t.name}</b><span class="text-[10px] px-2 py-0.5 rounded bg-slate-700">${t.risk}</span></div><div class="text-xs text-slate-400 mt-1">${esc(t.description)}</div></div>`).join('');
+  }catch(e){show(e.message)}
+}
+async function executeTool(){
+  const agentId=$('toolAgent').value,name=$('toolName').value;
+  if(!agentId)return alert('ابتدا ایجنت را انتخاب کنید.');
+  let input={};try{input=$('toolInput').value.trim()?JSON.parse($('toolInput').value):{}}catch{return alert('ورودی JSON معتبر نیست.')}
+  try{
+    const d=await request('/tools/'+name+'/execute',{method:'POST',headers:{'x-agent-id':agentId},body:JSON.stringify({input})});
+    $('toolResult').classList.remove('hidden');$('toolResult').textContent=JSON.stringify(d,null,2);
+  }catch(e){$('toolResult').classList.remove('hidden');$('toolResult').textContent=(e.data&&JSON.stringify(e.data))||e.message}
+}
+
+/* ---------- settings ---------- */
+function saveApiBase(){
+  const v=$('apiBaseInput').value.trim().replace(/\/$/,'');
+  try{v?localStorage.setItem('aam_api_base',v):localStorage.removeItem('aam_api_base')}catch(e){}
+  window.AAM_API_BASE=v||'/api';$('apiBaseNow').textContent=API();
+}
+function resetApiBase(){$('apiBaseInput').value='';saveApiBase()}
+
+/* ---------- boot ---------- */
+async function boot(){
+  $('apiBaseNow').textContent=API();$('apiBaseInput').value=window.AAM_API_BASE==='/api'?'':window.AAM_API_BASE;
+  if(!token()){$('authView').classList.remove('hidden');return}
+  const me=await loadMe();
+  if(!me){localStorage.removeItem('token');$('authView').classList.remove('hidden');return}
+  enterApp();
+  document.querySelector('.tab-btn[data-tab="overview"]').click();
+  await loadAgents();
+  refreshOverview();
+}
+boot();
 </script>
 </body>
 </html>

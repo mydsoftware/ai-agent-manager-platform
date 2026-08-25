@@ -20,6 +20,12 @@
 - Billing: `POST /billing/checkout` + `GET /billing/payments` با درگاه stub تستی
   - stub فقط خارج production و با `PAYMENT_STUB_AUTO_SUCCESS=true`
   - آداپتور درگاه واقعی (Zarinpal و…) بعد از دریافت دامنه به `PAYMENT_PROVIDER` وصل می‌شود
+- داشبورد کامل (`public/dashboard.html`): همه قابلیت‌ها در یک کنسول — نمای کلی، مدیریت ایجنت (SSE)، متخصص‌ها، ایجنت‌ها (ران‌ها/حافظه)، اجرای زنده، شارژ اعتبار + تاریخچه پرداخت + مصرف، کلیدهای API، ابزارها، تنظیمات آدرس API
+- استقرار داشبورد:
+  - GitHub Pages → از `public/` دیپلوی می‌شود (pages.yml)
+  - Vercel → `outputDirectory: public` + rewrite به API
+  - سرور اختصاصی/self-host → سرور Node استاتیک را هم از همان دامنه سرو می‌کند (`api/server.ts`)
+  - آدرس API از داخل داشبورد (تب تنظیمات) قابل تغییر است بدون دیپلوی مجدد
 - Tests: ۲۹ تست واحد (orchestrator, billing, credits, security) — همه سبز
 - Tests: unit tests برای billing/credits + security tests؛ اسکریپت `test:security` اضافه شد (CI سبز)
 
