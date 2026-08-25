@@ -9,6 +9,8 @@
     "db:push": "prisma db push --schema prisma/schema.prisma",
     "db:studio": "prisma studio --schema prisma/schema.prisma",
     "typecheck": "tsc --noEmit",
+    "build": "prisma generate --schema prisma/schema.prisma && tsc --noEmit",
+    "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:security": "vitest run tests/security-contract.test.ts"
   },
@@ -19,6 +21,7 @@
     "jose": "^5.9.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.15.0",
     "prisma": "^5.22.0",
     "typescript": "^5.7.2",
