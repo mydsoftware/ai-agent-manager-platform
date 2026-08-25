@@ -1,5 +1,5 @@
 /**
- * GitHub Pages frontend — NO secrets
+ * GitHub Pages — NO secrets
  * API on Render
  */
 (function () {
