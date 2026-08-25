@@ -7,18 +7,20 @@
     "postinstall": "prisma generate --schema prisma/schema.prisma",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:push": "prisma db push --schema prisma/schema.prisma",
-    "db:studio": "prisma studio --schema prisma/schema.prisma",
+    "start": "tsx api/server.ts",
+    "dev": "tsx watch api/server.ts",
     "typecheck": "tsc --noEmit",
-    "build": "prisma generate --schema prisma/schema.prisma && tsc --noEmit",
-    "lint": "tsc --noEmit",
     "test": "vitest run",
-    "test:security": "vitest run tests/security-contract.test.ts"
+    "build": "prisma generate --schema prisma/schema.prisma && tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.1",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "hono": "^4.6.5",
-    "jose": "^5.9.6"
+    "jose": "^5.9.6",
+    "tsx": "^4.19.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
