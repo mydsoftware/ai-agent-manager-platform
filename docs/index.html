@@ -1,40 +1,31 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AI Agent Manager</title>
-  <meta name="description" content="AI Agent Manager — مدیریت و اجرای ایجنت‌های هوش مصنوعی">
-  <style>
-    :root{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;color:#eaf0ff;background:#08111f}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 10%,#173b68 0,#08111f 42%,#050a12 100%)}
-    .wrap{max-width:1100px;margin:auto;padding:28px 18px 60px}.nav{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0}
-    .brand{font-weight:800;font-size:20px}.badge{font-size:12px;padding:7px 11px;border:1px solid #31557f;border-radius:999px;color:#9ec8ff}
-    .hero{padding:80px 0 45px;max-width:800px}.eyebrow{color:#7db7ff;font-weight:700}.hero h1{font-size:clamp(40px,7vw,76px);line-height:1.05;margin:16px 0}.hero p{font-size:19px;line-height:1.9;color:#aebbd0}
-    .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}.btn{display:inline-block;text-decoration:none;padding:13px 20px;border-radius:12px;font-weight:700}.primary{background:#fff;color:#07101d}.secondary{border:1px solid #355477;color:#dceaff}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:28px}.card{padding:22px;border:1px solid #1d3450;background:#0b1727cc;border-radius:18px}.card h3{margin-top:0}.card p{color:#9eacc0;line-height:1.7}
-    footer{margin-top:55px;color:#6f8097;font-size:13px;border-top:1px solid #17283c;padding-top:20px}
-  </style>
-</head>
-<body>
-  <main class="wrap">
-    <nav class="nav"><div class="brand">🤖 AI Agent Manager</div><span class="badge">GitHub Pages • Demo</span></nav>
-    <section class="hero">
-      <div class="eyebrow">Open-Core AI Agent Platform</div>
-      <h1>مدیریت ایجنت‌های هوش مصنوعی، یکجا.</h1>
-      <p>پلتفرم AI Agent Manager برای ساخت، مدیریت، اجرای خودکار و توسعه‌ی ایجنت‌های هوش مصنوعی. این صفحه نسخه‌ی رایگان و استاتیک Demo است؛ Backend و دیتابیس در سرویس‌های جداگانه اجرا می‌شوند.</p>
-      <div class="actions">
-        <a class="btn primary" href="https://github.com/mydsoftware/ai-agent-manager-platform">مشاهده در GitHub</a>
-        <a class="btn secondary" href="https://github.com/mydsoftware/ai-agent-manager-platform/blob/main/docs/INSTALL.md">راهنمای نصب</a>
-      </div>
-    </section>
-    <section class="grid">
-      <article class="card"><h3>🧠 Agent Management</h3><p>مدیریت ایجنت‌ها، وضعیت اجرا و چرخه‌ی توسعه در یک معماری واحد.</p></article>
-      <article class="card"><h3>🔐 Security</h3><p>ساختار امنیتی و قراردادهای امنیتی پروژه برای توسعه‌ی قابل اعتماد.</p></article>
-      <article class="card"><h3>⚙️ Automation</h3><p>آماده برای اتصال به CI/CD و اجرای خودکار فرآیندهای توسعه و استقرار.</p></article>
-      <article class="card"><h3>🗄️ PostgreSQL + Prisma</h3><p>Backend پروژه از Prisma و PostgreSQL استفاده می‌کند و این Demo بدون نیاز به Backend اجرا می‌شود.</p></article>
-    </section>
-    <footer>AI Agent Manager Platform — Static Demo hosted on GitHub Pages</footer>
-  </main>
-</body>
-</html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Agent Manager Dashboard</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;color:#e8eef8;background:#07101c;--panel:#0c1828;--line:#1d3048;--muted:#91a2b8;--accent:#62a8ff;--ok:#42d392;--warn:#ffbf69}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#173c68 0,#07101c 38%,#050a12 100%)}button{font:inherit}.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}.side{border-left:1px solid var(--line);background:#081321;padding:22px 16px;position:sticky;top:0;height:100vh}.brand{font-weight:900;font-size:19px;margin:5px 8px 30px}.nav button{width:100%;text-align:right;border:0;background:transparent;color:#a9b8cb;padding:13px 12px;border-radius:10px;margin:3px 0;cursor:pointer}.nav button.active,.nav button:hover{background:#12263e;color:#fff}.side .foot{position:absolute;bottom:20px;color:#647991;font-size:12px;padding:0 8px}.main{padding:26px;max-width:1400px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:24px}.top h1{margin:0;font-size:28px}.status{font-size:12px;color:#8fa5bd}.primary{border:0;background:#fff;color:#06101b;padding:11px 16px;border-radius:10px;font-weight:800;cursor:pointer}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:#0b1727dd;border:1px solid var(--line);border-radius:16px;padding:19px}.stat b{display:block;font-size:30px;margin-top:7px}.label{color:var(--muted);font-size:13px}.content{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-top:16px}.card h2{font-size:17px;margin:0 0 17px}.agents{display:grid;gap:10px}.agent{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #19304a;border-radius:12px;background:#091522}.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px #42d39266}.agent .info{flex:1}.agent strong{display:block}.agent small{color:var(--muted)}.pill{font-size:11px;padding:5px 8px;border-radius:99px;background:#123523;color:#70e3a5}.pill.warn{background:#3b2b14;color:var(--warn)}.activity{display:grid;gap:13px}.event{padding-bottom:12px;border-bottom:1px solid #17283d}.event:last-child{border:0}.event b{font-size:13px}.event p{margin:4px 0;color:var(--muted);font-size:12px}.toolbar{display:flex;gap:8px;margin-bottom:12px}.toolbar button{background:#102137;color:#cfe0f5;border:1px solid #203b58;padding:8px 12px;border-radius:9px;cursor:pointer}.hidden{display:none}.view{display:none}.view.active{display:block}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:right;padding:12px;border-bottom:1px solid #172a40;font-size:13px}.table th{color:#8094aa}.empty{color:var(--muted);padding:35px;text-align:center;border:1px dashed #27405c;border-radius:12px}@media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:relative;border-left:0;border-bottom:1px solid var(--line)}.side .foot{display:none}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.stats{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.main{padding:17px}}@media(max-width:500px){.stats{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style></head>
+<body><div class="app">
+<aside class="side"><div class="brand">🤖 AI Agent Manager</div><nav class="nav">
+<button class="active" data-view="dashboard">📊 داشبورد</button><button data-view="agents">🤖 ایجنت‌ها</button><button data-view="runs">▶️ اجراها</button><button data-view="memory">🧠 حافظه</button><button data-view="tools">🧰 ابزارها</button><button data-view="settings">⚙️ تنظیمات</button>
+</nav><div class="foot">GitHub Pages • Frontend Demo</div></aside>
+<main class="main">
+<section id="dashboard" class="view active"><div class="top"><div><h1>داشبورد مرکزی</h1><span class="status">● سیستم آماده است</span></div><button class="primary" onclick="newAgent()">＋ ساخت ایجنت</button></div>
+<div class="stats"><div class="card stat"><span class="label">ایجنت‌های فعال</span><b id="activeCount">3</b></div><div class="card stat"><span class="label">اجرای امروز</span><b id="runCount">27</b></div><div class="card stat"><span class="label">موفقیت اجرا</span><b>96%</b></div><div class="card stat"><span class="label">مصرف توکن</span><b>184K</b></div></div>
+<div class="content"><div class="card"><h2>ایجنت‌های در حال اجرا</h2><div class="agents" id="agentList"></div></div><div class="card"><h2>آخرین فعالیت‌ها</h2><div class="activity" id="activity"></div></div></div></section>
+<section id="agents" class="view"><div class="top"><h1>مدیریت ایجنت‌ها</h1><button class="primary" onclick="newAgent()">＋ ایجنت جدید</button></div><div class="card"><div class="toolbar"><button onclick="renderAgents()">↻ بروزرسانی</button></div><table class="table"><thead><tr><th>نام</th><th>نوع</th><th>وضعیت</th><th>آخرین اجرا</th></tr></thead><tbody id="agentTable"></tbody></table></div></section>
+<section id="runs" class="view"><div class="top"><h1>Execution Runs</h1></div><div class="card"><table class="table"><thead><tr><th>ایجنت</th><th>شروع</th><th>مدت</th><th>نتیجه</th></tr></thead><tbody><tr><td>SEO Optimizer</td><td>10:42</td><td>2m 18s</td><td><span class="pill">موفق</span></td></tr><tr><td>Research Agent</td><td>10:18</td><td>4m 02s</td><td><span class="pill">موفق</span></td></tr><tr><td>Content Writer</td><td>09:51</td><td>1m 37s</td><td><span class="pill warn">در انتظار</span></td></tr></tbody></table></div></section>
+<section id="memory" class="view"><div class="top"><h1>حافظه ایجنت‌ها</h1></div><div class="card"><div class="empty">حافظه بلندمدت و کوتاه‌مدت ایجنت‌ها در این بخش مدیریت می‌شود.<br>این نسخه GitHub Pages برای UI است و به Backend متصل نیست.</div></div></section>
+<section id="tools" class="view"><div class="top"><h1>Tool Registry</h1></div><div class="stats"><div class="card"><b>24</b><span class="label">ابزار ثبت‌شده</span></div><div class="card"><b>18</b><span class="label">فعال</span></div><div class="card"><b>6</b><span class="label">اتصال خارجی</span></div></div></section>
+<section id="settings" class="view"><div class="top"><h1>تنظیمات پلتفرم</h1></div><div class="card"><h2>وضعیت محیط</h2><p class="label">Frontend: GitHub Pages</p><p class="label">Database: PostgreSQL / Prisma</p><p class="label">API: آماده برای اتصال به Backend</p></div></section>
+</main></div>
+<script>
+const agents=[{name:'SEO Optimizer',type:'Autonomous',status:'فعال',last:'همین الان'},{name:'Research Agent',type:'Research',status:'فعال',last:'۲ دقیقه قبل'},{name:'Content Writer',type:'Workflow',status:'در انتظار',last:'۱۸ دقیقه قبل'},{name:'Code Reviewer',type:'Developer',status:'فعال',last:'۳۴ دقیقه قبل'}];
+const activities=[['SEO Optimizer','تحلیل ۱۲ صفحه سایت را آغاز کرد.'],['Research Agent','۳ منبع جدید به حافظه اضافه کرد.'],['Code Reviewer','Pull Request را بررسی کرد.'],['Content Writer','در صف اجرای Workflow قرار گرفت.']];
+function renderAgents(){document.getElementById('agentList').innerHTML=agents.slice(0,3).map(a=>`<div class="agent"><span class="dot"></span><div class="info"><strong>${a.name}</strong><small>${a.type} • ${a.last}</small></div><span class="pill ${a.status==='در انتظار'?'warn':''}">${a.status}</span></div>`).join('');document.getElementById('agentTable').innerHTML=agents.map(a=>`<tr><td>${a.name}</td><td>${a.type}</td><td><span class="pill ${a.status==='در انتظار'?'warn':''}">${a.status}</span></td><td>${a.last}</td></tr>`).join('')}
+function renderActivity(){document.getElementById('activity').innerHTML=activities.map(x=>`<div class="event"><b>${x[0]}</b><p>${x[1]}</p></div>`).join('')}
+function newAgent(){const name=prompt('نام ایجنت جدید را وارد کنید:');if(!name)return;agents.push({name,type:'Custom Agent',status:'در انتظار',last:'همین الان'});document.getElementById('activeCount').textContent=agents.filter(a=>a.status==='فعال').length;renderAgents();alert('ایجنت «'+name+'» به داشبورد اضافه شد.');}
+document.querySelectorAll('.nav button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(btn.dataset.view).classList.add('active');renderAgents();}));
+renderAgents();renderActivity();
+</script></body></html>
