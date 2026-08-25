@@ -1,31 +1,43 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI Agent Manager Dashboard</title>
-<style>
-:root{font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;color:#e8eef8;background:#07101c;--panel:#0c1828;--line:#1d3048;--muted:#91a2b8;--accent:#62a8ff;--ok:#42d392;--warn:#ffbf69}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#173c68 0,#07101c 38%,#050a12 100%)}button{font:inherit}.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}.side{border-left:1px solid var(--line);background:#081321;padding:22px 16px;position:sticky;top:0;height:100vh}.brand{font-weight:900;font-size:19px;margin:5px 8px 30px}.nav button{width:100%;text-align:right;border:0;background:transparent;color:#a9b8cb;padding:13px 12px;border-radius:10px;margin:3px 0;cursor:pointer}.nav button.active,.nav button:hover{background:#12263e;color:#fff}.side .foot{position:absolute;bottom:20px;color:#647991;font-size:12px;padding:0 8px}.main{padding:26px;max-width:1400px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:24px}.top h1{margin:0;font-size:28px}.status{font-size:12px;color:#8fa5bd}.primary{border:0;background:#fff;color:#06101b;padding:11px 16px;border-radius:10px;font-weight:800;cursor:pointer}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:#0b1727dd;border:1px solid var(--line);border-radius:16px;padding:19px}.stat b{display:block;font-size:30px;margin-top:7px}.label{color:var(--muted);font-size:13px}.content{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-top:16px}.card h2{font-size:17px;margin:0 0 17px}.agents{display:grid;gap:10px}.agent{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #19304a;border-radius:12px;background:#091522}.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px #42d39266}.agent .info{flex:1}.agent strong{display:block}.agent small{color:var(--muted)}.pill{font-size:11px;padding:5px 8px;border-radius:99px;background:#123523;color:#70e3a5}.pill.warn{background:#3b2b14;color:var(--warn)}.activity{display:grid;gap:13px}.event{padding-bottom:12px;border-bottom:1px solid #17283d}.event:last-child{border:0}.event b{font-size:13px}.event p{margin:4px 0;color:var(--muted);font-size:12px}.toolbar{display:flex;gap:8px;margin-bottom:12px}.toolbar button{background:#102137;color:#cfe0f5;border:1px solid #203b58;padding:8px 12px;border-radius:9px;cursor:pointer}.hidden{display:none}.view{display:none}.view.active{display:block}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:right;padding:12px;border-bottom:1px solid #172a40;font-size:13px}.table th{color:#8094aa}.empty{color:var(--muted);padding:35px;text-align:center;border:1px dashed #27405c;border-radius:12px}@media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:relative;border-left:0;border-bottom:1px solid var(--line)}.side .foot{display:none}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.stats{grid-template-columns:repeat(2,1fr)}.content{grid-template-columns:1fr}.main{padding:17px}}@media(max-width:500px){.stats{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
-</style></head>
-<body><div class="app">
-<aside class="side"><div class="brand">🤖 AI Agent Manager</div><nav class="nav">
-<button class="active" data-view="dashboard">📊 داشبورد</button><button data-view="agents">🤖 ایجنت‌ها</button><button data-view="runs">▶️ اجراها</button><button data-view="memory">🧠 حافظه</button><button data-view="tools">🧰 ابزارها</button><button data-view="settings">⚙️ تنظیمات</button>
-</nav><div class="foot">GitHub Pages • Frontend Demo</div></aside>
-<main class="main">
-<section id="dashboard" class="view active"><div class="top"><div><h1>داشبورد مرکزی</h1><span class="status">● سیستم آماده است</span></div><button class="primary" onclick="newAgent()">＋ ساخت ایجنت</button></div>
-<div class="stats"><div class="card stat"><span class="label">ایجنت‌های فعال</span><b id="activeCount">3</b></div><div class="card stat"><span class="label">اجرای امروز</span><b id="runCount">27</b></div><div class="card stat"><span class="label">موفقیت اجرا</span><b>96%</b></div><div class="card stat"><span class="label">مصرف توکن</span><b>184K</b></div></div>
-<div class="content"><div class="card"><h2>ایجنت‌های در حال اجرا</h2><div class="agents" id="agentList"></div></div><div class="card"><h2>آخرین فعالیت‌ها</h2><div class="activity" id="activity"></div></div></div></section>
-<section id="agents" class="view"><div class="top"><h1>مدیریت ایجنت‌ها</h1><button class="primary" onclick="newAgent()">＋ ایجنت جدید</button></div><div class="card"><div class="toolbar"><button onclick="renderAgents()">↻ بروزرسانی</button></div><table class="table"><thead><tr><th>نام</th><th>نوع</th><th>وضعیت</th><th>آخرین اجرا</th></tr></thead><tbody id="agentTable"></tbody></table></div></section>
-<section id="runs" class="view"><div class="top"><h1>Execution Runs</h1></div><div class="card"><table class="table"><thead><tr><th>ایجنت</th><th>شروع</th><th>مدت</th><th>نتیجه</th></tr></thead><tbody><tr><td>SEO Optimizer</td><td>10:42</td><td>2m 18s</td><td><span class="pill">موفق</span></td></tr><tr><td>Research Agent</td><td>10:18</td><td>4m 02s</td><td><span class="pill">موفق</span></td></tr><tr><td>Content Writer</td><td>09:51</td><td>1m 37s</td><td><span class="pill warn">در انتظار</span></td></tr></tbody></table></div></section>
-<section id="memory" class="view"><div class="top"><h1>حافظه ایجنت‌ها</h1></div><div class="card"><div class="empty">حافظه بلندمدت و کوتاه‌مدت ایجنت‌ها در این بخش مدیریت می‌شود.<br>این نسخه GitHub Pages برای UI است و به Backend متصل نیست.</div></div></section>
-<section id="tools" class="view"><div class="top"><h1>Tool Registry</h1></div><div class="stats"><div class="card"><b>24</b><span class="label">ابزار ثبت‌شده</span></div><div class="card"><b>18</b><span class="label">فعال</span></div><div class="card"><b>6</b><span class="label">اتصال خارجی</span></div></div></section>
-<section id="settings" class="view"><div class="top"><h1>تنظیمات پلتفرم</h1></div><div class="card"><h2>وضعیت محیط</h2><p class="label">Frontend: GitHub Pages</p><p class="label">Database: PostgreSQL / Prisma</p><p class="label">API: آماده برای اتصال به Backend</p></div></section>
-</main></div>
-<script>
-const agents=[{name:'SEO Optimizer',type:'Autonomous',status:'فعال',last:'همین الان'},{name:'Research Agent',type:'Research',status:'فعال',last:'۲ دقیقه قبل'},{name:'Content Writer',type:'Workflow',status:'در انتظار',last:'۱۸ دقیقه قبل'},{name:'Code Reviewer',type:'Developer',status:'فعال',last:'۳۴ دقیقه قبل'}];
-const activities=[['SEO Optimizer','تحلیل ۱۲ صفحه سایت را آغاز کرد.'],['Research Agent','۳ منبع جدید به حافظه اضافه کرد.'],['Code Reviewer','Pull Request را بررسی کرد.'],['Content Writer','در صف اجرای Workflow قرار گرفت.']];
-function renderAgents(){document.getElementById('agentList').innerHTML=agents.slice(0,3).map(a=>`<div class="agent"><span class="dot"></span><div class="info"><strong>${a.name}</strong><small>${a.type} • ${a.last}</small></div><span class="pill ${a.status==='در انتظار'?'warn':''}">${a.status}</span></div>`).join('');document.getElementById('agentTable').innerHTML=agents.map(a=>`<tr><td>${a.name}</td><td>${a.type}</td><td><span class="pill ${a.status==='در انتظار'?'warn':''}">${a.status}</span></td><td>${a.last}</td></tr>`).join('')}
-function renderActivity(){document.getElementById('activity').innerHTML=activities.map(x=>`<div class="event"><b>${x[0]}</b><p>${x[1]}</p></div>`).join('')}
-function newAgent(){const name=prompt('نام ایجنت جدید را وارد کنید:');if(!name)return;agents.push({name,type:'Custom Agent',status:'در انتظار',last:'همین الان'});document.getElementById('activeCount').textContent=agents.filter(a=>a.status==='فعال').length;renderAgents();alert('ایجنت «'+name+'» به داشبورد اضافه شد.');}
-document.querySelectorAll('.nav button').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(btn.dataset.view).classList.add('active');renderAgents();}));
-renderAgents();renderActivity();
-</script></body></html>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Agent Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>body{font-family:Vazirmatn,sans-serif}</style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen">
+  <header class="border-b border-slate-800 px-6 py-4 flex justify-between items-center flex-wrap gap-3">
+    <div class="font-bold text-lg">AI Agent Manager</div>
+    <nav class="flex gap-4 text-sm">
+      <a href="dashboard.html" class="text-slate-300 hover:text-white">داشبورد</a>
+      <a href="admin.html" class="text-slate-300 hover:text-white">Admin</a>
+    </nav>
+  </header>
+  <main class="max-w-3xl mx-auto px-6 py-16 text-center">
+    <p class="text-xs text-amber-400/90 mb-4">Frontend: GitHub Pages · API جدا (بدون Secret در Pages)</p>
+    <h1 class="text-4xl font-bold mb-4">مدیریت ایجنت‌های هوشمند</h1>
+    <p class="text-slate-400 mb-8">پلتفرم Open-Core — ثبت‌نام، ایجنت، اجرا، حافظه و اعتبار</p>
+    <div class="flex flex-wrap gap-3 justify-center">
+      <a href="dashboard.html" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-3 rounded-xl font-semibold">ورود به داشبورد</a>
+      <button id="ping" class="border border-slate-600 px-6 py-3 rounded-xl">وضعیت API</button>
+    </div>
+    <pre id="health" class="mt-8 text-left text-xs bg-slate-900 border border-slate-800 rounded-xl p-4 overflow-auto text-slate-300"></pre>
+  </main>
+  <script src="config.js"></script>
+  <script>
+    document.getElementById('ping').onclick = async () => {
+      const el = document.getElementById('health');
+      el.textContent = 'در حال اتصال به ' + window.AAM_CONFIG.API_URL + ' ...';
+      try {
+        const r = await fetch(window.AAM_CONFIG.API_URL + '/health');
+        el.textContent = JSON.stringify(await r.json(), null, 2);
+      } catch (e) {
+        el.textContent = 'خطا: ' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
