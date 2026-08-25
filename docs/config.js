@@ -1,10 +1,14 @@
 /**
- * GitHub Pages frontend config
- * Backend is separate. No secrets here.
+ * GitHub Pages frontend config — NO secrets
  */
-window.AAM_CONFIG = {
-  API_URL:
-    localStorage.getItem('API_URL') ||
-    'https://ai-agent-manager-platform-five.vercel.app/api',
-  APP_NAME: 'AI Agent Manager',
-};
+(function () {
+  var stored = null;
+  try {
+    stored = localStorage.getItem('API_URL');
+  } catch (e) {}
+  window.AAM_CONFIG = {
+    API_URL: stored || 'https://ai-agent-manager-platform-five.vercel.app/api',
+    APP_NAME: 'AI Agent Manager',
+    PAGES_BASE: '/ai-agent-manager-platform/',
+  };
+})();
