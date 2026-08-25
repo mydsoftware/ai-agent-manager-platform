@@ -55,6 +55,7 @@ model Payment {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  @@map("payments")
 }
 
 model Agent {
@@ -76,24 +77,26 @@ model Agent {
   memories       AgentMemory[]
   @@unique([tenantId, slug])
   @@index([tenantId])
+  @@map("agents")
 }
 
 model AgentRun {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   agentId     String
   tenantId    String
-  status      String   @default("PENDING")
+  status      String    @default("PENDING")
   input       Json?
   output      Json?
   error       String?
-  tokensUsed  Int      @default(0)
-  creditsUsed Int      @default(0)
-  iterations  Int      @default(0)
+  tokensUsed  Int       @default(0)
+  creditsUsed Int       @default(0)
+  iterations  Int       @default(0)
   startedAt   DateTime?
   finishedAt  DateTime?
-  createdAt   DateTime @default(now())
-  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   @@index([tenantId, agentId, createdAt])
+  @@map("agent_runs")
 }
 
 model AgentMemory {
@@ -106,6 +109,7 @@ model AgentMemory {
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   @@index([tenantId, agentId, createdAt])
+  @@map("agent_memories")
 }
 
 model AuditLog {
@@ -120,6 +124,7 @@ model AuditLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([tenantId, createdAt])
   @@index([userId, createdAt])
+  @@map("audit_logs")
 }
 
 model ApiKey {
@@ -135,4 +140,5 @@ model ApiKey {
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([tenantId, createdAt])
+  @@map("api_keys")
 }
