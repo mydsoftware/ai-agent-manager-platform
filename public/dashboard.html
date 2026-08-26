@@ -228,7 +228,7 @@ async function request(path,options={}){
   try{if(!ct.includes('application/json'))throw new Error('non-json');d=await r.json()}catch{
     throw new Error(r.status===404?'آدرس API پیدا نشد (404) — در تب تنظیمات آدرس درست سرور را ذخیره کنید.':'پاسخ نامعتبر از سرور (HTTP '+r.status+'). آدرس API را بررسی کنید.')
   }
-  if(r.status===401&&path!=='/auth/login'&&path!=='/auth/register'){logout(true);throw Object.assign(new Error(d.error||'UNAUTHORIZED'),{status:r.status})}
+  if(r.status===401&&(d.error==='UNAUTHORIZED'||d.error==='TOKEN_EXPIRED')&&path!=='/auth/login'&&path!=='/auth/register'){logout(true);throw Object.assign(new Error(d.error||'UNAUTHORIZED'),{status:r.status})}
   if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{data:d,status:r.status});
   return d;
 }
