@@ -23,6 +23,11 @@
 
   <!-- AUTH -->
   <main id="authView" class="max-w-md mx-auto px-5 py-14 hidden">
+    <div id="apiBanner" class="hidden card p-4 mb-4 border-amber-700 bg-amber-950/40 space-y-2">
+      <div class="text-sm text-amber-300 font-bold">⚠️ اتصال به سرور برقرار نیست</div>
+      <p class="text-xs text-slate-300">آدرس API سرور (Render/Vercel/سرور خودتان) را وارد کنید. بدون آن ورود و ثبت‌نام کار نمی‌کند.</p>
+      <div class="flex gap-2"><input id="bannerApiBase" placeholder="https://...onrender.com/api" class="mono flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs outline-none" /><button onclick="saveBannerApi()" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg text-xs">ذخیره</button></div>
+    </div>
     <section class="card p-6 space-y-3">
       <h1 class="text-xl font-bold text-center">ورود / ثبت‌نام</h1>
       <input id="email" type="email" placeholder="ایمیل" autocomplete="email" class="w-full bg-slate-800 rounded-lg px-3 py-2 outline-none" />
@@ -216,8 +221,13 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 async function request(path,options={}){
   const headers={...(options.headers||{}),'Content-Type':'application/json'};
   if(token())headers.Authorization='Bearer '+token();
-  const r=await fetch(API()+path,{...options,headers});
-  let d;try{d=await r.json()}catch{d={error:'INVALID_RESPONSE'}}
+  let r;
+  try{r=await fetch(API()+path,{...options,headers})}catch(e){throw new Error('ارتباط با سرور برقرار نشد. آدرس API در تب تنظیمات را بررسی کنید.')}
+  const ct=(r.headers.get('content-type')||'');
+  let d;
+  try{if(!ct.includes('application/json'))throw new Error('non-json');d=await r.json()}catch{
+    throw new Error(r.status===404?'آدرس API پیدا نشد (404) — در تب تنظیمات آدرس درست سرور را ذخیره کنید.':'پاسخ نامعتبر از سرور (HTTP '+r.status+'). آدرس API را بررسی کنید.')
+  }
   if(r.status===401&&path!=='/auth/login'&&path!=='/auth/register'){logout(true);throw Object.assign(new Error(d.error||'UNAUTHORIZED'),{status:r.status})}
   if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{data:d,status:r.status});
   return d;
@@ -487,8 +497,18 @@ function saveApiBase(){
 function resetApiBase(){$('apiBaseInput').value='';saveApiBase()}
 
 /* ---------- boot ---------- */
+function saveBannerApi(){
+  const v=$('bannerApiBase').value.trim().replace(/\/$/,'');
+  if(!v)return alert('آدرس API را وارد کنید.');
+  try{localStorage.setItem('aam_api_base',v)}catch(e){}
+  window.AAM_API_BASE=v;location.reload();
+}
 async function boot(){
   $('apiBaseNow').textContent=API();$('apiBaseInput').value=window.AAM_API_BASE==='/api'?'':window.AAM_API_BASE;
+  if(location.hostname.endsWith('.github.io')&&window.AAM_API_BASE==='/api'){
+    const b=$('apiBanner');b.classList.remove('hidden');
+    if(!$('bannerApiBase').value)$('bannerApiBase').placeholder='https://your-service.onrender.com/api';
+  }
   if(!token()){$('authView').classList.remove('hidden');return}
   const me=await loadMe();
   if(!me){localStorage.removeItem('token');$('authView').classList.remove('hidden');return}
