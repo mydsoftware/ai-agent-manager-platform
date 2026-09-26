@@ -16,6 +16,9 @@ import { searchMemory } from './memory-api'
 import { retrieveMemory, saveMemory } from './rag'
 import { rateLimit, rateLimitKey } from './rate-limit'
 import { validateToolPermission } from './policy'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StreamableHTTPTransport } from '@hono/mcp'
+import { z } from 'zod'
 
 const app = new Hono().basePath('/api')
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -245,5 +248,80 @@ app.get('/pages', async (c) => {
     return c.json({ error: e?.message || 'PAGES_FAILED' }, code)
   }
 })
+
+const mcpGithubHeaders = () => {
+  const token = process.env.GITHUB_TOKEN
+  if (!token) throw new Error('GITHUB_TOKEN_NOT_CONFIGURED')
+  return {
+    accept: 'application/vnd.github+json',
+    authorization: `Bearer ${token}`,
+    'X-GitHub-Api-Version': '2022-11-28',
+    'user-agent': 'MYD-Coding-Agent-MCP',
+  }
+}
+const mcpGithub = async (path: string, init: RequestInit = {}) => {
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    headers: { ...mcpGithubHeaders(), ...(init.headers || {}) },
+  })
+  const raw = await response.text()
+  let data: any
+  try { data = raw ? JSON.parse(raw) : null } catch { data = raw }
+  if (!response.ok) throw new Error(data?.message || `GITHUB_API_${response.status}`)
+  return data
+}
+const mcpText = (value: unknown) => ({
+  content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
+})
+function createMcpServer() {
+  const server = new McpServer({ name: 'myd-coding-agent', version: '1.0.0' })
+  server.tool('server_info', 'Return MYD Coding Agent MCP capabilities.', {}, async () => mcpText({
+    name: 'MYD Coding Agent',
+    transport: 'Streamable HTTP',
+    tools: ['repo','read_file','search_code','issues','pulls','commits','create_branch','create_file','update_file','delete_file','create_pull_request'],
+  }))
+  server.tool('repo', 'Get GitHub repository metadata.', { owner:z.string(), repo:z.string() }, async ({owner,repo}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}`)))
+  server.tool('read_file', 'Read a UTF-8 file from GitHub.', { owner:z.string(), repo:z.string(), path:z.string(), ref:z.string().optional() }, async ({owner,repo,path,ref}) => {
+    const q = ref ? `?ref=${encodeURIComponent(ref)}` : ''
+    const data:any = await mcpGithub(`/repos/${owner}/${repo}/contents/${path}${q}`)
+    if (!data.content || data.encoding !== 'base64') throw new Error('PATH_IS_NOT_TEXT_FILE')
+    return mcpText({ path, sha:data.sha, content:Buffer.from(data.content,'base64').toString('utf8') })
+  })
+  server.tool('search_code', 'Search code in a GitHub repository.', { owner:z.string(), repo:z.string(), query:z.string() }, async ({owner,repo,query}) => mcpText(await mcpGithub(`/search/code?q=${encodeURIComponent(query+' repo:'+owner+'/'+repo)}`)))
+  server.tool('issues', 'List GitHub repository issues.', { owner:z.string(), repo:z.string(), state:z.enum(['open','closed','all']).optional() }, async ({owner,repo,state}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/issues?state=${state||'open'}&per_page=50`)))
+  server.tool('pulls', 'List GitHub pull requests.', { owner:z.string(), repo:z.string(), state:z.enum(['open','closed','all']).optional() }, async ({owner,repo,state}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/pulls?state=${state||'open'}&per_page=50`)))
+  server.tool('commits', 'List recent GitHub commits.', { owner:z.string(), repo:z.string(), sha:z.string().optional() }, async ({owner,repo,sha}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/commits?per_page=30${sha?'&sha='+encodeURIComponent(sha):''}`)))
+  server.tool('create_branch', 'Create a branch from an existing ref.', { owner:z.string(), repo:z.string(), branch:z.string(), base_ref:z.string().optional(), base_sha:z.string().optional() }, async ({owner,repo,branch,base_ref,base_sha}) => {
+    let sha=base_sha
+    if (!sha) {
+      const ref=base_ref||'main'
+      const data:any=await mcpGithub(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(ref)}`)
+      sha=data.object.sha
+    }
+    return mcpText(await mcpGithub(`/repos/${owner}/${repo}/git/refs`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ref:'refs/heads/'+branch,sha}) }))
+  })
+  server.tool('create_file', 'Create a file and commit it to an existing branch.', { owner:z.string(), repo:z.string(), path:z.string(), content:z.string(), message:z.string(), branch:z.string() }, async ({owner,repo,path,content,message,branch}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/contents/${path}`, { method:'PUT', headers:{'content-type':'application/json'}, body:JSON.stringify({message,content:Buffer.from(content).toString('base64'),branch}) })))
+  server.tool('update_file', 'Update an existing file using its current blob SHA.', { owner:z.string(), repo:z.string(), path:z.string(), content:z.string(), message:z.string(), branch:z.string(), sha:z.string() }, async ({owner,repo,path,content,message,branch,sha}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/contents/${path}`, { method:'PUT', headers:{'content-type':'application/json'}, body:JSON.stringify({message,content:Buffer.from(content).toString('base64'),branch,sha}) })))
+  server.tool('delete_file', 'Delete a file using its current blob SHA.', { owner:z.string(), repo:z.string(), path:z.string(), message:z.string(), branch:z.string(), sha:z.string() }, async ({owner,repo,path,message,branch,sha}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/contents/${path}`, { method:'DELETE', headers:{'content-type':'application/json'}, body:JSON.stringify({message,branch,sha}) })))
+  server.tool('create_pull_request', 'Create a GitHub pull request.', { owner:z.string(), repo:z.string(), title:z.string(), body:z.string().optional(), head:z.string(), base:z.string(), draft:z.boolean().optional() }, async ({owner,repo,title,body,head,base,draft}) => mcpText(await mcpGithub(`/repos/${owner}/${repo}/pulls`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({title,body:body||'',head,base,draft:Boolean(draft)}) })))
+  return server
+}
+app.all('/mcp', async (c) => {
+  const expected = process.env.MCP_AUTH_TOKEN
+  const authorization = c.req.header('authorization') || ''
+  if (!expected || authorization !== `Bearer ${expected}`) return c.json({ error:'UNAUTHORIZED' }, 401)
+  const origin = c.req.header('origin')
+  if (origin && !origin.startsWith('https://')) return c.json({ error:'INVALID_ORIGIN' }, 403)
+  const server = createMcpServer()
+  const transport = new StreamableHTTPTransport({ strictAcceptHeader:false })
+  try {
+    await server.connect(transport)
+    return await transport.handleRequest(c)
+  } catch (e:any) {
+    console.error('MYD MCP error', e)
+    return c.json({ error:e?.message || 'MCP_REQUEST_FAILED' }, 500)
+  }
+})
+
 app.onError((err, c) => { console.error(err); return c.json({ error: 'INTERNAL_ERROR' }) })
 export default app
