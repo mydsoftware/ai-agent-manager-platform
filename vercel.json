@@ -5,7 +5,7 @@
   "buildCommand": "npx prisma db push --schema prisma/schema.prisma && node scripts/bootstrap-admin.mjs && npx prisma generate --schema prisma/schema.prisma",
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/mcp", "destination": "/api/myd-coding-mcp" },
+    { "source": "/mcp", "destination": "/api/mcp" },
     { "source": "/api/(.*)", "destination": "/api" }
   ]
 }
