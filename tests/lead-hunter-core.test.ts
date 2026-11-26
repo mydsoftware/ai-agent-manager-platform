@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateContactPolicy, normalizeLeadKey, scoreLead } from '../api/leads/core'
+import { evaluateContactPolicy, normalizeLeadKey, scoreLead } from '../api/leads/core'\nimport { ConnectorPolicyError, dispatchApprovedMessage, type ConnectorAdapter } from '../api/leads/connectors'
 
 describe('AI Lead Hunter core', () => {
   it('calculates an explainable weighted score', () => {
@@ -47,3 +47,4 @@ describe('AI Lead Hunter core', () => {
     expect(result).toEqual({ allowed: true, reasons: [] })
   })
 })
+
