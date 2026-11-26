@@ -6,7 +6,7 @@
 - [x] تعریف مرزهای حقوقی/فنی کانکتورها
 - [x] تعریف مدل محصول و معماری اولیه
 - [ ] بازبینی دقیق schema و migration strategy
-- [ ] تثبیت قرارداد API و تست‌های امنیتی
+- [ ] تثبیت قرارداد API و تست‌های امنیتی (در انتظار تکمیل طراحی schema و routeها)
 
 ## فاز یک — هسته MVP
 - [ ] BusinessProfile و ICP
@@ -14,8 +14,8 @@
 - [ ] SuppressionEntry و Activity
 - [ ] API CRUD با tenant isolation
 - [ ] CSV import/export و deduplication
-- [ ] scoring قطعی قابل توضیح
-- [ ] تست‌های واحد و امنیتی
+- [x] هسته اولیه scoring قطعی و قابل توضیح در api/leads/core.ts
+- [x] تست‌های واحد اولیه برای scoring و contact policy نوشته شد؛ اجرای CI هنوز تأیید نشده است
 
 ## فاز دو — هوش مصنوعی
 - [ ] طبقه‌بندی نیاز و استخراج فیلدها
