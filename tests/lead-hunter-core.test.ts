@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateContactPolicy, normalizeLeadKey, scoreLead } from '../api/leads/core'\nimport { ConnectorPolicyError, dispatchApprovedMessage, type ConnectorAdapter } from '../api/leads/connectors'
+import { evaluateContactPolicy, normalizeLeadKey, scoreLead } from '../api/leads/core'
+import { ConnectorPolicyError, dispatchApprovedMessage, type ConnectorAdapter } from '../api/leads/connectors'
 
 describe('AI Lead Hunter core', () => {
   it('calculates an explainable weighted score', () => {
@@ -46,5 +47,19 @@ describe('AI Lead Hunter core', () => {
     })
     expect(result).toEqual({ allowed: true, reasons: [] })
   })
+  it('does not send through an unverified connector', async () => {
+    const connector: ConnectorAdapter = {
+      id: 'divar', displayName: 'دیوار',
+      capabilities: { canReceive: true, canSend: true, officialApi: false, supportedMessageKinds: ['TEXT'] },
+      async healthCheck() { return { ok: true } },
+      async sendMessage() { return { providerMessageId: 'x', status: 'ACCEPTED' } },
+    }
+    await expect(dispatchApprovedMessage(connector, {
+      recipientId: 'recipient', text: 'سلام', idempotencyKey: 'key-1', purpose: 'درخواست مشتری',
+    }, {
+      connectorEnabled: true, permissionGranted: true, consentRecorded: true,
+      legalBasisRecorded: false, suppressed: false, withinAllowedWindow: true,
+      underRateLimit: true, approvalGranted: true,
+    })).rejects.toBeInstanceOf(ConnectorPolicyError)
+  })
 })
-
